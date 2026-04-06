@@ -78,7 +78,6 @@ export function runMonteCarlo(
     const ly = isFinite(last.state.y) ? last.state.y : 0;
     scatter.push({ x: lx, y: ly, runIndex: i });
 
-    if (i === 0) nominalTrajectory = pts;
     if ((i + 1) % 50 === 0) onProgress(i + 1);
   }
 
