@@ -72,6 +72,26 @@ python test_validation.py
 
 All 28 test cases should pass.
 
+## Why 3-DOF and Not 6-DOF
+
+A 6-DOF simulation models both translational motion (x, y, z) and rotational motion (pitch, yaw, roll). It can predict where a rocket actually goes — accounting for fin stabilization, gyroscopic effects, and attitude dynamics. Tools like OpenRocket and RASAero II use 6-DOF or high-fidelity approximations of it.
+
+This tool deliberately uses 3-DOF (translation only, point-mass). Here's why that's the right choice for hazard zone analysis:
+
+**1. The goal is a worst-case bound, not a best-guess trajectory.**
+A 6-DOF sim models a rocket that is flying correctly — stable, well-trimmed, behaving as designed. A hazard zone calculation needs to answer: *if something goes wrong, how far could this rocket travel?* A point-mass with no attitude dynamics is inherently more pessimistic because it doesn't get credit for fin stabilization or aerodynamic self-correction.
+
+**2. 6-DOF requires data you don't have at launch time.**
+Accurate 6-DOF needs moments of inertia, aerodynamic moment coefficients, damping derivatives, and center-of-pressure as a function of angle of attack. These are hard to measure and rarely available for hobby rockets. 3-DOF only needs geometry and thrust — inputs that are realistic to collect.
+
+**3. It matches the regulatory precedent.**
+The original FAA TAOS tool (Sandia National Laboratories, 1995) that this calculator replaces was a 3-DOF point-mass simulation. Using the same methodology keeps results directly comparable to the existing FAA baseline and avoids introducing new assumptions that would need regulatory justification.
+
+**4. Simplicity is a feature for safety tools.**
+A simpler model is easier to audit, validate, and explain to a launch official or FAA inspector. The conservative assumptions (20 MPH headwind, CD intentionally low, angle sweep to 20°) are explicit and defensible. A complex 6-DOF model can obscure whether the result is conservative or optimistic.
+
+In short: 6-DOF is better for predicting where your rocket goes. 3-DOF is better for predicting the boundary of where it *could* go. For a hazard zone tool, that distinction matters.
+
 ## Physics Model
 
 | Parameter | Value |
