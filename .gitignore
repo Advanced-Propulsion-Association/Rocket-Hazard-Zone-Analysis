@@ -17,6 +17,9 @@ dist/
 Thumbs.db
 *.log
 
+# Visual brainstorming sessions
+.superpowers/
+
 # Environment / secrets
 .env
 .env.*
