@@ -116,9 +116,43 @@ export async function parseOrkFile(buffer: ArrayBuffer): Promise<OpenRocketData>
     finTipChord_in:  finTip_m * M_TO_IN,
     finSpan_in:      finSpan_m * M_TO_IN,
     finSweep_in:     finSweep_m > 0 ? finSweep_m * M_TO_IN : undefined,
+    numFins:         extractNumFins(doc),
+    cgFromNose_in:   (() => {
+      const cg_m = extractCGFromNose(doc);
+      return cg_m != null ? cg_m * M_TO_IN : undefined;
+    })(),
     motorDesignation:  motorDesignation || undefined,
     motorManufacturer: motorManufacturer || undefined,
     maxApogee_m:     maxApogee_m != null && isFinite(maxApogee_m) ? maxApogee_m : undefined,
     maxVelocity_ms:  maxVelocity_ms != null && isFinite(maxVelocity_ms) ? maxVelocity_ms : undefined,
   };
+}
+
+/**
+ * Extract number of fins from parsed .ork document.
+ * Falls back to 3 if not found (most common hobby rocket config).
+ */
+export function extractNumFins(doc: Document): number {
+  const finEl =
+    doc.getElementsByTagName('trapezoidfinset')[0] ??
+    doc.getElementsByTagName('ellipticalfinset')[0] ??
+    null;
+  if (!finEl) return 3;
+  const countEl = finEl.getElementsByTagName('fincount')[0];
+  if (!countEl) return 3;
+  const n = parseInt(countEl.textContent ?? '3', 10);
+  return isFinite(n) && n > 0 ? n : 3;
+}
+
+/**
+ * Estimate CG location from nose tip (meters) by reading OR-stored simulation data.
+ * Returns undefined if not available.
+ */
+export function extractCGFromNose(doc: Document): number | undefined {
+  const cgEl = doc.getElementsByTagName('cg')[0] ?? null;
+  if (cgEl) {
+    const val = parseFloat(cgEl.textContent ?? '');
+    if (isFinite(val) && val > 0) return val;
+  }
+  return undefined;
 }
