@@ -1,0 +1,23 @@
+# PDFs (large reference documents — not tracked in git)
+*.pdf
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Node / React build artifacts
+node_modules/
+dist/
+*.local
+
+# Vite / editor / OS
+.vite/
+.DS_Store
+Thumbs.db
+*.log
+
+# Environment / secrets
+.env
+.env.*
+!.env.example

@@ -1,0 +1,13 @@
+Number of Stages: Total and for each stage (if applicable) -
+· Total Vehicle (& individual stage) lengths: · Total Vehicle (& individual stage) diameters: · Total Vehicle (& individual stage) wet masses: · Total Vehicle (& individual stage) dry masses: · Thrust table per stage (if available):
+- If not, then average thrust · Mass Flowrate table per stage (if available):
+- If not, then average mass flowrate · MECO Time: · If Multiple Stages -
+- Stage Separation Time: - Second Engine Ignition Time: - SECO Time:
+Aero Data (if available): · Aerodynamic Force Coefficients (Axial, Normal, & Lateral) vs AoA vs Mach for each propelled body:
+- Stage 1 - Stage 2 (if applicable) - Final Stage in Powered OFF State
+· Center of Pressure vs AoA vs Mach for each propelled body:
+- Stage 1 - Stage 2 (if applicable) - Final Stage in Powered OFF State
+* See attached Aero_Data_Format_Instructions.pdf for further explanation
+Launch Info: · Launch rail length: · Nominal launch elevation angle and/or range of angles:
+
+

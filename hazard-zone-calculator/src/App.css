@@ -1,0 +1,20 @@
+.input-field {
+  background: rgb(51 65 85);    /* slate-700 */
+  border: 1px solid rgb(71 85 105); /* slate-600 */
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  color: white;
+  width: 100%;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.input-field:focus {
+  border-color: rgb(59 130 246); /* blue-500 */
+}
+
+.input-field::placeholder {
+  color: rgb(100 116 139); /* slate-500 */
+}

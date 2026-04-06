@@ -1,0 +1,30 @@
+Aero Data Format Instructions
+· Aero Force Coefficients (Axial, Normal, Lateral) and Center of Pressure needed for each propelled body (as well as final stage in powered off state)
+· This table sets Aerodynamic Force Coefficients (or Center of Pressure location [in]) as a function of Mach number and total Angle of Attack (AoA) for Stage X vehicle flight
+· Center of Pressure (CPx) Definition:
+o CPx along roll axis where the aero force vector is applied such that no moment aero coefficients are acquired
+o CPx expressed in inches from a reference origin (base of propelled body)
+· Following the 'Mach' column header, on the same row, enter 'm' numerical values representing the total AoA [deg].
+· Angle of attack values should be monotonically increasing · Angle of attack values should span the range from 0 to 180 degrees rotation of the
+vehicle · Each table row corresponds to the specified Mach number provided in column 1 · 'Mach' values should be listed in monotonically increasing order · User enters 'n' values of Mach numbers · Final 'CAxial', `CNormal', `CLateral', and `CPx' dependent variables are defined by the numerical
+values entered in the n-row x m-column array
+
+AoA (Degrees)
+
+Mach 0 2 4 8 10 20
+
+...
+
+...
+
+0.85
+
+1
+
+...
+
+...
+
+170 180
+
+
