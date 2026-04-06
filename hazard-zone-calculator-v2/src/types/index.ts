@@ -1,8 +1,8 @@
-// ─── Motor ───────────────────────────────────────────────────────────────────
+// ─── Re-export v1 motor types (unchanged) ────────────────────────────────────
 
 export interface ThrustPoint {
-  time: number;   // seconds
-  thrust: number; // Newtons
+  time: number;
+  thrust: number;
 }
 
 export interface Motor {
@@ -13,84 +13,102 @@ export interface Motor {
   totalMassKg: number;
   manufacturer: string;
   thrustCurve: ThrustPoint[];
-  nozzleExitAreaM2?: number; // optional, for altitude correction
+  nozzleExitAreaM2?: number;
 }
 
-// ─── Rocket Configuration ────────────────────────────────────────────────────
+// ─── 6-DOF state vector ───────────────────────────────────────────────────────
 
-export type InputTier = 'tier1' | 'tier2' | 'tier3';
-
-export interface RocketInputs {
-  tier: InputTier;
-
-  // Tier 1
-  maxApogee_ft?: number;
-  siteElevation_ft?: number;
-
-  // Tier 2+
-  bodyDiameter_in?: number;
-  bodyLength_in?: number;
-  totalMass_lb?: number;
-  motor?: Motor;
-
-  // Tier 3 additional
-  noseConeType?: 'ogive' | 'conical' | 'parabolic' | 'haack';
-  noseLength_in?: number;
-  finRootChord_in?: number;
-  finTipChord_in?: number;
-  finSpan_in?: number;
-  finSweep_in?: number;
-  nozzleExitDiameter_in?: number;
-  surfaceTemp_F?: number;
-  numStages?: number;
-
-  // Launch conditions
-  surfaceWind_mph?: number;
-  cdOverride?: number; // manual CD override
+export interface State6DOF {
+  x: number;     // downrange position (m) — aligned with wind
+  y: number;     // lateral position (m)
+  z: number;     // altitude AGL (m)
+  vx: number;    // velocity x (m/s)
+  vy: number;    // velocity y (m/s)
+  vz: number;    // velocity z (m/s)
+  phi: number;   // roll angle (rad)
+  theta: number; // pitch angle from vertical (rad) — 0 = straight up
+  psi: number;   // yaw angle (rad)
+  p: number;     // roll rate (rad/s)
+  q: number;     // pitch rate (rad/s)
+  r: number;     // yaw rate (rad/s)
+  mass: number;  // kg
 }
 
-// ─── Trajectory ──────────────────────────────────────────────────────────────
+// ─── 6-DOF simulation config ──────────────────────────────────────────────────
 
-export interface TrajectoryPoint {
-  t: number;    // seconds
-  x: number;    // downrange distance (m)
-  z: number;    // altitude AGL (m)
-  vx: number;   // m/s
-  vz: number;   // m/s
-  mass: number; // kg
+export interface Config6DOF {
+  bodyDiameter_m: number;
+  bodyLength_m: number;
+  totalMass_kg: number;
+  motor: Motor;
+  Ixx: number;                   // axial MOI (kg·m²)
+  Iyy: number;                   // transverse MOI (kg·m²) — same for yaw (symmetric)
+  CNalpha: number;               // normal force slope (per rad)
+  xCP_m: number;                 // CP from nose (m)
+  xCG_m: number;                 // CG from nose (m)
+  Cmq: number;                   // pitch damping coefficient
+  Cnr: number;                   // yaw damping coefficient
+  Clp: number;                   // roll damping coefficient
+  launchAngle_deg: number;       // from vertical (0–20°)
+  launchAzimuth_deg: number;     // 0 = into wind
+  siteElevation_m: number;
+  siteTemp_K: number;
+  surfaceWind_ms: number;        // wind speed (along +X)
+  initialRollRate_rads: number;  // p0 — 0 for unspun rockets
+  initialQ_rads?: number;        // initial pitch rate perturbation (Monte Carlo use)
+}
+
+// ─── Trajectory output ────────────────────────────────────────────────────────
+
+export interface TrajectoryPoint6DOF {
+  t: number;
+  x: number; y: number; z: number;
+  vx: number; vy: number; vz: number;
+  phi: number; theta: number; psi: number;
+  p: number; q: number; r: number;
+  alpha: number;   // angle of attack (rad)
+  mass: number;
   mach: number;
-  thrust: number; // N
-  drag: number;   // N
+  thrust: number;
+  drag: number;
 }
 
-// ─── Result ──────────────────────────────────────────────────────────────────
+// ─── Monte Carlo ──────────────────────────────────────────────────────────────
 
-export interface HazardZoneResult {
+export interface ScatterPoint {
+  x: number;   // landing downrange (m)
+  y: number;   // landing lateral (m)
+  runIndex: number;
+}
+
+export interface MonteCarloResult {
+  points: ScatterPoint[];
   hazardRadius_m: number;
   hazardRadius_ft: number;
-  optimalAngle_deg: number;
-  maxApogee_m: number;
-  maxApogee_ft: number;
-  motorClass: string;
-  totalImpulse_Ns: number;
-  quarterAltitudeRule_m: number;
-  quarterRuleConservative: boolean;
-  trajectories?: Record<number, TrajectoryPoint[]>; // angle -> trajectory
-  warnings: string[];
-  // Tier 1 breakdown (descent-from-apogee mode only)
-  tier1DescentRange_m?: number;
-  tier1AscentOffset_m?: number;
-  // Stability (Tier 2/3 only)
-  stabilityMargin_cal?: number;
-  cdMultiplier?: number;
-  cdEffective?: number;
-  stabilityCategory?: 'stable' | 'marginal' | 'unstable';
-  // OpenRocket comparison
-  orkApogee_m?: number;
-  orkMotorDesignation?: string;
+  hazardRadius_p99_m: number;   // 99th-percentile distance from launch pad
+  nominalTrajectory: TrajectoryPoint6DOF[];
+  nominalConfig: Config6DOF;
 }
 
-// ─── OpenRocket Data ─────────────────────────────────────────────────────────
+// ─── Worker messages ──────────────────────────────────────────────────────────
+
+export interface WorkerRequest {
+  config: Config6DOF;
+  numRuns: number;
+}
+
+export interface WorkerProgress {
+  type: 'progress';
+  completed: number;
+  total: number;
+}
+
+export interface WorkerResult {
+  type: 'result';
+  result: MonteCarloResult;
+}
+
+// ─── OpenRocket data (extended for 6-DOF) ────────────────────────────────────
 
 export interface OpenRocketData {
   rocketName?: string;
@@ -102,13 +120,16 @@ export interface OpenRocketData {
   finTipChord_in: number;
   finSpan_in: number;
   finSweep_in?: number;
+  numFins?: number;
+  cgFromNose_in?: number;        // CG location from nose tip (from .ork component data)
+  cpFromNose_in?: number;        // CP from Barrowman (computed or from .ork)
   motorDesignation?: string;
   motorManufacturer?: string;
   maxApogee_m?: number;
   maxVelocity_ms?: number;
 }
 
-// ─── Motor Lookup (ThrustCurve.org) ─────────────────────────────────────────
+// ─── Motor lookup ─────────────────────────────────────────────────────────────
 
 export interface MotorSearchResult {
   motorId: string;
@@ -120,7 +141,7 @@ export interface MotorSearchResult {
   burnTimeS: number;
   propWeightG: number;
   totalWeightG: number;
-  diameter: number; // mm
-  length: number;   // mm
+  diameter: number;
+  length: number;
   motorClass: string;
 }
