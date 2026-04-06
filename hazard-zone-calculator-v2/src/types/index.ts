@@ -39,21 +39,31 @@ export interface State6DOF {
 export interface Config6DOF {
   bodyDiameter_m: number;
   bodyLength_m: number;
+  noseConeLength_m: number;
   totalMass_kg: number;
   motor: Motor;
-  Ixx: number;                   // axial MOI (kg·m²)
-  Iyy: number;                   // transverse MOI (kg·m²) — same for yaw (symmetric)
+  Ixx_kgm2: number;              // axial MOI (kg·m²)
+  Iyy_kgm2: number;              // transverse MOI (kg·m²) — same for yaw (symmetric)
   CNalpha: number;               // normal force slope (per rad)
-  xCP_m: number;                 // CP from nose (m)
-  xCG_m: number;                 // CG from nose (m)
+  CP_m: number;                  // CP from nose (m)
+  CG_m: number;                  // CG from nose (m)
+  CD: number;                    // drag coefficient
   Cmq: number;                   // pitch damping coefficient
   Cnr: number;                   // yaw damping coefficient
   Clp: number;                   // roll damping coefficient
-  launchAngle_deg: number;       // from vertical (0–20°)
+  finRootChord_m: number;
+  finTipChord_m: number;
+  finSpan_m: number;
+  finSweepAngle_rad: number;
+  numFins: number;
+  thrustCurve: [number, number][];  // [time_s, thrust_N][]
+  propellantMass_kg: number;
+  launchAngle_rad: number;       // from vertical (0–20°)
   launchAzimuth_deg: number;     // 0 = into wind
-  siteElevation_m: number;
+  launchAltitude_m: number;
   siteTemp_K: number;
-  surfaceWind_ms: number;        // wind speed (along +X)
+  windSpeed_ms: number;          // wind speed (along +X)
+  windDirection_rad: number;
   initialRollRate_rads: number;  // p0 — 0 for unspun rockets
   initialQ_rads?: number;        // initial pitch rate perturbation (Monte Carlo use)
 }
@@ -62,12 +72,8 @@ export interface Config6DOF {
 
 export interface TrajectoryPoint6DOF {
   t: number;
-  x: number; y: number; z: number;
-  vx: number; vy: number; vz: number;
-  phi: number; theta: number; psi: number;
-  p: number; q: number; r: number;
-  alpha: number;   // angle of attack (rad)
-  mass: number;
+  state: State6DOF;
+  alpha: number;   // angle of attack (rad) — telemetry
   mach: number;
   thrust: number;
   drag: number;
@@ -82,7 +88,7 @@ export interface ScatterPoint {
 }
 
 export interface MonteCarloResult {
-  points: ScatterPoint[];
+  scatter: ScatterPoint[];
   hazardRadius_m: number;
   hazardRadius_ft: number;
   hazardRadius_p99_m: number;   // 99th-percentile distance from launch pad
@@ -92,10 +98,11 @@ export interface MonteCarloResult {
 
 // ─── Worker messages ──────────────────────────────────────────────────────────
 
-export interface WorkerRequest {
+export type WorkerRequest = {
+  type: 'run';
   config: Config6DOF;
   numRuns: number;
-}
+};
 
 export interface WorkerProgress {
   type: 'progress';
