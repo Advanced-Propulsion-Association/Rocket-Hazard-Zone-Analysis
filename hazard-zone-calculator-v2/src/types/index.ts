@@ -104,16 +104,16 @@ export type WorkerRequest = {
   numRuns: number;
 };
 
-export interface WorkerProgress {
+export type WorkerProgress = {
   type: 'progress';
   completed: number;
   total: number;
-}
+};
 
-export interface WorkerResult {
+export type WorkerResult = {
   type: 'result';
   result: MonteCarloResult;
-}
+};
 
 // ─── OpenRocket data (extended for 6-DOF) ────────────────────────────────────
 
