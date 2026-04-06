@@ -36,6 +36,7 @@ export function estimateMOI(inputs: MOIInputs): MOIResult {
  * Empirical approximation: Cmq ≈ -2 * CNα * (L/2) / d
  */
 export function estimateCmq(CNalpha: number, bodyLength_m: number, bodyDiameter_m: number): number {
+  if (bodyDiameter_m <= 0) return 0;
   return -2 * CNalpha * (bodyLength_m / 2) / bodyDiameter_m;
 }
 
