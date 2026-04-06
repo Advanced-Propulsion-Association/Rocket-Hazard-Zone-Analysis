@@ -146,9 +146,9 @@ export interface MotorSearchResult {
   totalImpulseNs: number;
   avgThrustN: number;
   burnTimeS: number;
-  propWeightG: number;
-  totalWeightG: number;
-  diameter: number;
-  length: number;
+  propWeightKg: number;    // ThrustCurve.org returns grams — convert at import boundary
+  totalWeightKg: number;
+  diameterMm: number;
+  lengthMm: number;
   motorClass: string;
 }
