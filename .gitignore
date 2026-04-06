@@ -17,6 +17,9 @@ dist/
 Thumbs.db
 *.log
 
+# Git worktrees
+.worktrees/
+
 # Visual brainstorming sessions
 .superpowers/
 
