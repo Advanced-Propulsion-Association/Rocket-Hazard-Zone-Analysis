@@ -32,6 +32,7 @@ function buildConfig6DOF(orkData: OpenRocketData, totalMass_kg: number, motor: C
     finTipChord_m: finTip_m,
     finSpan_m,
     numFins,
+    finSweep_m,
   };
 
   const CNalpha = computeCNAlpha(barrowmanInputs);
@@ -41,7 +42,8 @@ function buildConfig6DOF(orkData: OpenRocketData, totalMass_kg: number, motor: C
     : L_m * 0.55;
 
   const moi = estimateMOI({ totalMass_kg, bodyDiameter_m: d_m, totalLength_m: L_m });
-  const Cmq = estimateCmq(CNalpha, L_m, d_m);
+  const CNalpha_fins = Math.max(0, CNalpha - 2.0);
+  const Cmq = estimateCmq(CNalpha_fins, CP_m, CG_m, d_m);
   const Clp = estimateClp();
 
   return {

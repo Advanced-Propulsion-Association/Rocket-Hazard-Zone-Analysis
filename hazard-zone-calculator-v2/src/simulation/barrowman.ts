@@ -16,6 +16,8 @@ export interface BarrowmanInputs {
   finTipChord_m: number;
   finSpan_m: number;
   numFins: number;
+  /** Leading-edge setback distance (m) — horizontal distance from root LE to tip LE along body axis. */
+  finSweep_m?: number;
 }
 
 export interface BarrowmanInputsWithBody extends BarrowmanInputs {
@@ -77,8 +79,11 @@ export function computeCPFromNose(inputs: BarrowmanInputsWithBody): number {
   // Fin CP: centroid of fin planform measured from nose
   // Fin leading edge is at body length minus root chord (trailing edge at body end)
   const xFinLeadingEdge = bodyLength_m - cr;
-  // Centroid of trapezoid along root chord: (cr + 2*ct)/(3*(cr+ct)) * cr
-  const xCP_fins = xFinLeadingEdge + cr * (cr + 2 * ct) / (3 * (cr + ct));
+  // Centroid of trapezoid + sweep correction (Barrowman 1967 §3.3):
+  //   chord centroid: cr*(cr+2*ct)/(3*(cr+ct))
+  //   sweep shift:    finSweep_m / 2 (half the leading-edge setback)
+  const sweepShift = (inputs.finSweep_m ?? 0) / 2;
+  const xCP_fins = xFinLeadingEdge + sweepShift + cr * (cr + 2 * ct) / (3 * (cr + ct));
 
   // Moment-balance average CP location
   const CNalpha_total = CNalpha_nose + CNalpha_fins;

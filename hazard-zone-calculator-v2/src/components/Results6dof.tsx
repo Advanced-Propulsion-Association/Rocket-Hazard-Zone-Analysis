@@ -26,7 +26,7 @@ export function Results6dof({ result, hazard3dof_ft }: Props) {
 
   return (
     <div>
-      <Section title={`Hazard Zone — ${result.hazardRadius_ft.toFixed(0)} ft radius`}>
+      <Section title={`Hazard Zone — ${result.hazardRadius_ft.toFixed(0)} ft radius (P99)`}>
         <div className="grid grid-cols-3 gap-3 text-center">
           <div className="bg-gray-800 rounded p-3">
             <p className="text-2xl font-bold text-green-400">{result.hazardRadius_ft.toFixed(0)}</p>
@@ -37,12 +37,12 @@ export function Results6dof({ result, hazard3dof_ft }: Props) {
             <p className="text-xs text-gray-400">m radius</p>
           </div>
           <div className="bg-gray-800 rounded p-3">
-            <p className="text-2xl font-bold text-gray-300">{result.hazardRadius_p99_m.toFixed(0)}</p>
-            <p className="text-xs text-gray-400">m (P99)</p>
+            <p className="text-2xl font-bold text-gray-300">{result.hazardRadius_max_m.toFixed(0)}</p>
+            <p className="text-xs text-gray-400">m (max)</p>
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-2">
-          Based on {result.scatter.length} Monte Carlo runs. Hazard radius = max landing distance from launch pad.
+          Based on {result.scatter.length} Monte Carlo runs. Hazard radius = P99 landing distance (headline); max shown for reference.
         </p>
       </Section>
 

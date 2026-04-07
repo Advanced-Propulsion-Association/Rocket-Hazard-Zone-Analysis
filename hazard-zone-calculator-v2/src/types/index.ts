@@ -89,9 +89,11 @@ export interface ScatterPoint {
 
 export interface MonteCarloResult {
   scatter: ScatterPoint[];
+  /** Headline hazard radius: P99 of landing distances (statistically robust for FAA reporting). */
   hazardRadius_m: number;
   hazardRadius_ft: number;
-  hazardRadius_p99_m: number;   // 99th-percentile distance from launch pad
+  /** Maximum landing distance across all runs (supplemental; high variance with small N). */
+  hazardRadius_max_m: number;
   nominalTrajectory: TrajectoryPoint6DOF[];
   nominalConfig: Config6DOF;
 }

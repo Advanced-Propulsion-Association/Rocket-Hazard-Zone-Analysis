@@ -5,7 +5,7 @@ export interface VarianceOptions {
   windVariance?: number;      // fraction of wind speed (default 0.20 = ±20%)
   angleVariance?: number;     // radians (default ~0.035 rad = ±2°)
   impulseVariance?: number;   // fraction of total impulse (default 0.03 = ±3%)
-  pitchPerturbance?: number;  // radians initial pitch (default ~0.017 rad = ±1°)
+  pitchPerturbance?: number;  // initial pitch rate (rad/s) — tip-off perturbation (default 1.0 rad/s)
 }
 
 /** Uniform random in [-1, 1] */
@@ -35,7 +35,7 @@ export function runMonteCarlo(
     windVariance     = 0.20,
     angleVariance    = 2.0 * Math.PI / 180,   // 2 degrees in radians
     impulseVariance  = 0.03,
-    pitchPerturbance = 1.0 * Math.PI / 180,   // 1 degree in radians
+    pitchPerturbance = 1.0,                   // 1 rad/s tip-off rate (±1 rad/s ≈ ±57°/s)
   } = variance;
 
   const scatter: ScatterPoint[] = [];
@@ -83,14 +83,17 @@ export function runMonteCarlo(
 
   onProgress(numRuns);
 
-  const hazardRadius_m = hazardRadiusFromPoints(scatter);
+  // P99 is the headline hazard radius — statistically stable and appropriate for FAA reporting.
+  // Max is provided as supplemental but has high variance for small N.
+  const hazardRadius_m = p99Radius(scatter);
+  const hazardRadius_max_m = hazardRadiusFromPoints(scatter);
   const M_TO_FT = 3.28084;
 
   return {
     scatter,
     hazardRadius_m,
     hazardRadius_ft: hazardRadius_m * M_TO_FT,
-    hazardRadius_p99_m: p99Radius(scatter),
+    hazardRadius_max_m,
     nominalTrajectory,
     nominalConfig,
   };

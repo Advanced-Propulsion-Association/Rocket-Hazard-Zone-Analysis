@@ -148,20 +148,18 @@ function deriv(
   // --- normal (lift) force from angle of attack ---
   const Fnormal = qBar * ctx.refArea * ctx.CNalpha * alphaEff;
 
-  // Normal force direction: perpendicular to body axis, in the plane of airspeed & body axis.
-  // The restoring moment is Fnormal * (CP - CG).
-  // For the force itself we need the lateral direction in body frame.
-  // Approximate: normal force acts perpendicular to body axis toward the airspeed vector.
+  // Hoist perpendicular airspeed so both the force and moment sections can use it.
+  let vaPerpX = 0, vaPerpY = 0, vaPerpZ = 0, vaPerpMag = 0;
   let Nx = 0, Ny = 0, Nz = 0;
   if (Va > 0.1 && alphaEff > 1e-6) {
     // Airspeed component perpendicular to body axis
     const vaPar = vax * bx_i + vay * by_i + vaz * bz_i;
-    let vaPerpX = vax - vaPar * bx_i;
-    let vaPerpY = vay - vaPar * by_i;
-    let vaPerpZ = vaz - vaPar * bz_i;
-    const vaPerpMag = Math.sqrt(vaPerpX * vaPerpX + vaPerpY * vaPerpY + vaPerpZ * vaPerpZ);
+    vaPerpX = vax - vaPar * bx_i;
+    vaPerpY = vay - vaPar * by_i;
+    vaPerpZ = vaz - vaPar * bz_i;
+    vaPerpMag = Math.sqrt(vaPerpX * vaPerpX + vaPerpY * vaPerpY + vaPerpZ * vaPerpZ);
     if (vaPerpMag > 1e-6) {
-      // Normal force toward the airspeed vector (restoring)
+      // Normal force perpendicular to body axis, toward the airspeed vector
       Nx = Fnormal * vaPerpX / vaPerpMag;
       Ny = Fnormal * vaPerpY / vaPerpMag;
       Nz = Fnormal * vaPerpZ / vaPerpMag;
@@ -175,21 +173,42 @@ function deriv(
   const dvz = (Tz + Dz + Nz) / m - G0;
 
   // --- moments (body frame) ---
-  // Restoring moment from CP-CG offset
-  const momentArm = ctx.cpMinusCg; // positive when CP behind CG (stable)
-  const Mrestoring = -Fnormal * momentArm; // restoring pitch/yaw moment magnitude
-
-  // Decompose restoring moment into pitch (q) and yaw (r) channels.
-  // Use the same perpendicular-to-body direction to find pitch vs yaw contributions.
+  // Restoring moment from CP-CG offset.
+  // The moment vector = r_{CG→CP} × F_N = (-momentArm * nose_dir) × (Fnormal * vaPerpDir)
+  //                   = -momentArm * Fnormal * (nose_dir × vaPerpDir)
+  // Project onto body pitch axis (body-y) and body yaw axis (body-z) for Mm and Nm.
+  //
+  // Body axes in inertial frame (ZYX convention with theta from vertical):
+  //   body-x (nose): (st*cpsi, st*spsi, ct)              — already computed as bx_i, by_i, bz_i
+  //   body-y (pitch axis, phi=0): (-spsi, cpsi, 0)
+  //   body-z (yaw axis, phi=0):   (-ct*cpsi, -ct*spsi, st)
+  //   With roll phi: bodyY = cp*by0 - sp*bz0,  bodyZ = sp*by0 + cp*bz0
   let Mm = 0; // pitch moment
   let Nm = 0; // yaw moment
-  if (Va > 0.1 && alphaEff > 1e-6) {
-    // Project the perpendicular airspeed onto body y and body z to split pitch/yaw.
-    // Body y-axis in inertial: (-sin(psi), cos(psi), 0) approximately for small phi
-    // Body z-axis in inertial: (-cos(theta)*cos(psi), -cos(theta)*sin(psi), sin(theta))
-    // Simplified: restoring moment acts primarily in pitch for rockets with small roll
-    Mm = Mrestoring; // pitch restoring
-    Nm = 0;          // yaw restoring (small for axially-launched rockets)
+  if (Va > 0.1 && alphaEff > 1e-6 && vaPerpMag > 1e-6) {
+    const momentArm = ctx.cpMinusCg; // positive when CP behind CG (stable)
+
+    // Body pitch and yaw axes in inertial frame (accounting for roll phi)
+    const by0x = -spsi,          by0y = cpsi,          by0z = 0;
+    const bz0x = -ct * cpsi,     bz0y = -ct * spsi,    bz0z = st;
+    const bodyYx = cp * by0x - sp * bz0x;
+    const bodyYy = cp * by0y - sp * bz0y;
+    const bodyYz = cp * by0z - sp * bz0z;
+    const bodyZx = sp * by0x + cp * bz0x;
+    const bodyZy = sp * by0y + cp * bz0y;
+    const bodyZz = sp * by0z + cp * bz0z;
+
+    // Cross product: nose_dir × vaPerpDir_hat
+    const ph = vaPerpX / vaPerpMag;
+    const qh = vaPerpY / vaPerpMag;
+    const rh = vaPerpZ / vaPerpMag;
+    const crossX = by_i * rh - bz_i * qh;
+    const crossY = bz_i * ph - bx_i * rh;
+    const crossZ = bx_i * qh - by_i * ph;
+
+    const scale = -momentArm * Fnormal;
+    Mm = scale * (crossX * bodyYx + crossY * bodyYy + crossZ * bodyYz);
+    Nm = scale * (crossX * bodyZx + crossY * bodyZy + crossZ * bodyZz);
   }
 
   // Damping moments

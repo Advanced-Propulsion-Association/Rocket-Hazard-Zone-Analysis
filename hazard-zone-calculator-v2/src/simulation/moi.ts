@@ -33,11 +33,24 @@ export function estimateMOI(inputs: MOIInputs): MOIResult {
 
 /**
  * Estimate pitch/yaw damping coefficient Cmq (= Cnr for symmetric rocket).
- * Empirical approximation: Cmq ≈ -2 * CNα * (L/2) / d
+ *
+ * Derived from the fin contribution: the fins at distance (xFinCP - xCG) from
+ * the CG experience an effective AoA of q*(xFinCP-xCG)/V due to pitch rate q.
+ * The resulting moment: M_q = -CNα_fins * q̄S * (xFinCP-xCG)² * q/V
+ * Compared to usage M = Cmq * q̄ * S * d² * q/(2V):
+ *   Cmq = -2 * CNα_fins * ((xFinCP - xCG) / d)²
+ *
+ * Reference: Barrowman (1967) §3.3; Stevens & Lewis "Aircraft Flight Simulation".
  */
-export function estimateCmq(CNalpha: number, bodyLength_m: number, bodyDiameter_m: number): number {
+export function estimateCmq(
+  CNalpha_fins: number,
+  xFinCP_m: number,
+  xCG_m: number,
+  bodyDiameter_m: number,
+): number {
   if (bodyDiameter_m <= 0) return 0;
-  return -2 * CNalpha * (bodyLength_m / 2) / bodyDiameter_m;
+  const leverArm = xFinCP_m - xCG_m;
+  return -2 * CNalpha_fins * (leverArm / bodyDiameter_m) ** 2;
 }
 
 /**
