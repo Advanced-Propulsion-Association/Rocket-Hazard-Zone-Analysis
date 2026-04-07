@@ -73,6 +73,40 @@ function getNum(el: Element | null, tag: string): number {
   return isFinite(n) ? n : 0;
 }
 
+/**
+ * Get outer radius from a component element.
+ * OpenRocket uses different tag names across versions:
+ *   BodyTube: <radius>, <outerradius>, <outsideradius>
+ *   NoseCone: <aftradius> (aft = base of nose = body radius), also <radius>
+ * Also checks the 'radius' attribute (some formats use attributes).
+ * Ignores "auto" values.
+ */
+function getRadius(el: Element | null): number {
+  if (!el) return 0;
+  for (const tag of ['radius', 'outerradius', 'outsideradius', 'aftradius']) {
+    const child = el.getElementsByTagName(tag)[0];
+    if (child) {
+      const txt = (child.textContent ?? '').trim().toLowerCase();
+      if (txt && txt !== 'auto') {
+        const n = parseFloat(txt);
+        if (isFinite(n) && n > 0) return n;
+      }
+    }
+  }
+  // Fallback: check 'radius' attribute directly on the element
+  const attr = el.getAttribute('radius');
+  if (attr && attr.toLowerCase() !== 'auto') {
+    const n = parseFloat(attr);
+    if (isFinite(n) && n > 0) return n;
+  }
+  return 0;
+}
+
+/** Return all elements with any of the given tag names (document-wide). */
+function getAllByTags(doc: Document, ...tags: string[]): Element[] {
+  return tags.flatMap(t => Array.from(doc.getElementsByTagName(t)));
+}
+
 function mapNoseShape(shape: string): OpenRocketData['noseConeType'] {
   const s = shape.toLowerCase();
   if (s === 'ogive' || s === 'tangent' || s === 'secant') return 'ogive';
@@ -90,49 +124,69 @@ export async function parseOrkFile(buffer: ArrayBuffer): Promise<OpenRocketData>
   const rocketEl = doc.getElementsByTagName('rocket')[0] ?? null;
   const rocketName = rocketEl ? (rocketEl.getAttribute('name') ?? undefined) : undefined;
 
-  // Nose cone
+  // ── Nose cone ────────────────────────────────────────────────────────────────
   const noseEl = doc.getElementsByTagName('nosecone')[0] ?? null;
   const noseShape = noseEl ? (noseEl.getAttribute('shape') ?? getText(noseEl, 'shape')) : 'ogive';
   const noseLength_m = getNum(noseEl, 'length');
-  const noseRadius_m = getNum(noseEl, 'radius'); // aft radius of nose = body radius
+  // Nosecone uses <aftradius> in most OR versions; fallback to <radius>
+  const noseRadius_m = getRadius(noseEl);
 
-  // Body tube (first one — stage 1)
-  const bodyEl = doc.getElementsByTagName('bodytube')[0] ?? null;
-  const bodyLength_m = getNum(bodyEl, 'length');
-  const bodyRadius_m = getNum(bodyEl, 'radius');
+  // ── Body tubes — multi-stage aware ───────────────────────────────────────────
+  // Collect all body tubes. For multi-stage rockets, the tube with the largest
+  // outer radius is the primary airframe (all stages typically share the same
+  // diameter, but this also handles tapered/stepped designs correctly).
+  const allBodyEls = Array.from(doc.getElementsByTagName('bodytube'));
 
-  // Use nose radius if body radius is 0 (some .ork files omit body radius)
-  const radius_m = bodyRadius_m > 0 ? bodyRadius_m : noseRadius_m;
+  // Find the tube with the largest outer radius to use as reference diameter.
+  let maxRadius = 0;
+  for (const el of allBodyEls) {
+    const r = getRadius(el);
+    if (r > maxRadius) { maxRadius = r; }
+  }
 
-  // Fins (trapezoid or elliptical)
+  const radius_m = maxRadius > 0 ? maxRadius : noseRadius_m;
+
+  // Total rocket length = nose + sum of all body tube lengths.
+  // This handles multi-stage rockets where each stage has its own body tube.
+  const totalBodyLength_m = allBodyEls.reduce((acc, el) => acc + getNum(el, 'length'), 0);
+  const totalLength_m = noseLength_m + totalBodyLength_m;
+
+  // ── Fins ─────────────────────────────────────────────────────────────────────
+  // Prefer fins from the LAST stage (booster fins stabilise the whole stack).
+  // Fallback: use first finset found.
+  const allTrapEls = Array.from(doc.getElementsByTagName('trapezoidfinset'));
+  const allEllipEls = Array.from(doc.getElementsByTagName('ellipticalfinset'));
+  // Last trapezoid finset is typically on the booster; if none, use elliptical.
   const finEl =
-    doc.getElementsByTagName('trapezoidfinset')[0] ??
-    doc.getElementsByTagName('ellipticalfinset')[0] ??
-    null;
-  const finRoot_m   = getNum(finEl, 'rootchord');
-  const finTip_m    = getNum(finEl, 'tipchord');
-  const finSpan_m   = getNum(finEl, 'height');
-  const finSweep_m  = getNum(finEl, 'sweeplength');
+    (allTrapEls.length > 0 ? allTrapEls[allTrapEls.length - 1] : null) ??
+    (allEllipEls.length > 0 ? allEllipEls[allEllipEls.length - 1] : null);
 
-  // Motor
-  const motorEl = doc.getElementsByTagName('motor')[0] ?? null;
-  const motorDesignation  = motorEl ? (motorEl.getAttribute('designation') ?? getText(motorEl, 'designation') ?? undefined) : undefined;
-  const motorManufacturer = motorEl ? (motorEl.getAttribute('manufacturer') ?? getText(motorEl, 'manufacturer') ?? undefined) : undefined;
+  const finRoot_m  = getNum(finEl, 'rootchord');
+  const finTip_m   = getNum(finEl, 'tipchord');
+  const finSpan_m  = getNum(finEl, 'height');
+  const finSweep_m = getNum(finEl, 'sweeplength');
 
-  // Stored simulation apogee
+  // ── Motor (prefer booster — last motor element in doc) ─────────────────────
+  const allMotorEls = getAllByTags(doc, 'motor');
+  const motorEl = allMotorEls.length > 0 ? allMotorEls[allMotorEls.length - 1] : null;
+  const motorDesignation  = motorEl
+    ? (motorEl.getAttribute('designation') || getText(motorEl, 'designation') || undefined)
+    : undefined;
+  const motorManufacturer = motorEl
+    ? (motorEl.getAttribute('manufacturer') || getText(motorEl, 'manufacturer') || undefined)
+    : undefined;
+
+  // ── Stored simulation results ─────────────────────────────────────────────
   const altEl = doc.getElementsByTagName('maxaltitude')[0] ?? null;
-  const maxAltText = altEl ? (altEl.textContent ?? '') : '';
-  const maxApogee_m = maxAltText ? parseFloat(maxAltText) : undefined;
+  const maxApogee_m = altEl ? parseFloat(altEl.textContent ?? '') : undefined;
 
-  // Max velocity
   const velEl = doc.getElementsByTagName('maxvelocity')[0] ?? null;
-  const maxVelText = velEl ? (velEl.textContent ?? '') : '';
-  const maxVelocity_ms = maxVelText ? parseFloat(maxVelText) : undefined;
+  const maxVelocity_ms = velEl ? parseFloat(velEl.textContent ?? '') : undefined;
 
   return {
     rocketName,
     bodyDiameter_in: radius_m * 2 * M_TO_IN,
-    bodyLength_in:   bodyLength_m * M_TO_IN,
+    bodyLength_in:   totalLength_m * M_TO_IN,
     noseConeType:    mapNoseShape(noseShape),
     noseLength_in:   noseLength_m * M_TO_IN,
     finRootChord_in: finRoot_m * M_TO_IN,

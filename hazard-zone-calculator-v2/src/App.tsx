@@ -167,6 +167,35 @@ export default function App() {
         <div className="w-[420px] flex-shrink-0 bg-gray-900 border-r border-gray-800 overflow-y-auto p-5">
           <p className="text-xs text-gray-400 uppercase tracking-wider mb-3">Rocket</p>
           <OrkUpload onParsed={data => { setOrkData(data); setError(null); }} onError={setError} />
+
+          {orkData && (
+            <div className="mt-2 p-2 bg-gray-800/50 border border-gray-700 rounded text-xs text-gray-300 space-y-0.5">
+              <p className="font-medium text-gray-200 mb-1">
+                {orkData.rocketName ?? 'Rocket'} — parsed geometry
+              </p>
+              <div className="grid grid-cols-2 gap-x-3">
+                <span className="text-gray-400">Diameter</span>
+                <span>{orkData.bodyDiameter_in?.toFixed(2) ?? '—'} in</span>
+                <span className="text-gray-400">Length</span>
+                <span>{orkData.bodyLength_in?.toFixed(1) ?? '—'} in</span>
+                <span className="text-gray-400">Nose</span>
+                <span>{orkData.noseLength_in?.toFixed(1) ?? '—'} in ({orkData.noseConeType})</span>
+                <span className="text-gray-400">Fin root / tip</span>
+                <span>{orkData.finRootChord_in?.toFixed(2) ?? '—'} / {orkData.finTipChord_in?.toFixed(2) ?? '—'} in</span>
+                <span className="text-gray-400">Fin span</span>
+                <span>{orkData.finSpan_in?.toFixed(2) ?? '—'} in × {orkData.numFins ?? '?'} fins</span>
+                {orkData.cgFromNose_in != null && (
+                  <><span className="text-gray-400">CG from nose</span>
+                  <span>{orkData.cgFromNose_in.toFixed(1)} in</span></>
+                )}
+                {orkData.motorDesignation && (
+                  <><span className="text-gray-400">Motor</span>
+                  <span>{orkData.motorDesignation}</span></>
+                )}
+              </div>
+            </div>
+          )}
+
           <ManualInputForm values={manualData} onChange={d => setManualData(prev => ({ ...prev, ...d }))} />
           <MotorPicker selectedMotor={motor} onMotorSelected={setMotor} />
 
