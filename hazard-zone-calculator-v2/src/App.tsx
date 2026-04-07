@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { OrkUpload } from './components/OrkUpload';
 import { ManualInputForm } from './components/ManualInputForm';
 import { MotorPicker } from './components/MotorPicker';
@@ -7,6 +7,8 @@ import { Results6dof } from './components/Results6dof';
 import { SiteConditions, DEFAULT_SITE_CONDITIONS } from './components/SiteConditions';
 import type { SiteConditionsValue } from './components/SiteConditions';
 import { AssumptionsPanel } from './components/AssumptionsPanel';
+import { RocketInfoPanel } from './components/RocketInfoPanel';
+import { SimDiagnosticsPanel } from './components/SimDiagnosticsPanel';
 import { computeCNAlpha, computeCPFromNose } from './simulation/barrowman';
 import { lookupMotor } from './motors/thrustcurve';
 import { estimateMOI, estimateCmq, estimateClp } from './simulation/moi';
@@ -101,13 +103,13 @@ export default function App() {
 
   useEffect(() => () => { workerRef.current?.terminate(); }, []);
 
-  // Auto-lookup motor when a .ork file with a motor designation is loaded
+  // Auto-lookup motor when a new .ork file is loaded (motor was just cleared)
   useEffect(() => {
     if (!orkData?.motorDesignation || motor) return;
     lookupMotor(orkData.motorDesignation, orkData.motorManufacturer)
       .then(m => { if (m) setMotor(m); })
       .catch(() => {}); // silent fail — user can select manually
-  }, [orkData]);
+  }, [orkData, motor]);
 
   const handleRun = useCallback(() => {
     const data = orkData ?? (manualData as OpenRocketData);
@@ -124,8 +126,11 @@ export default function App() {
     setProgress(0);
     setError(null);
 
-    // Airframe dry mass heuristic (kg): length-based estimate without motor
-    const airframeMass_kg = data.bodyLength_in ? data.bodyLength_in * 0.015 * 0.453592 + 0.3 : 0.5;
+    // Airframe dry mass heuristic (kg): proportional to tube surface area (D×L)
+    // Calibrated: 0.00275 * D_in * L_in → ~95g for Big Bertha (1.637"×22"), ~43g for simple rocket (0.984"×15.75")
+    const airframeMass_kg = data.bodyDiameter_in && data.bodyLength_in
+      ? 0.00275 * data.bodyDiameter_in * data.bodyLength_in
+      : 0.5;
     const totalMass_kg = airframeMass_kg + motor.totalMassKg;
     const config = buildConfig6DOF(data, totalMass_kg, motor, site);
 
@@ -157,6 +162,20 @@ export default function App() {
   const hasGeometry = !!(effectiveData as OpenRocketData)?.bodyDiameter_in;
   const readyToRun = hasGeometry && !!motor;
 
+  // Live preview of config values that will be passed to the sim
+  const previewAirframeMass_kg = useMemo(() => {
+    const data = orkData ?? (manualData as OpenRocketData);
+    if (!data?.bodyDiameter_in || !data?.bodyLength_in) return null;
+    return 0.00275 * data.bodyDiameter_in * data.bodyLength_in;
+  }, [orkData, manualData]);
+
+  const previewConfig = useMemo<Config6DOF | null>(() => {
+    if (!readyToRun || previewAirframeMass_kg === null || !motor) return null;
+    const data = (orkData ?? manualData) as OpenRocketData;
+    const totalMass_kg = previewAirframeMass_kg + motor.totalMassKg;
+    return buildConfig6DOF(data, totalMass_kg, motor, site);
+  }, [readyToRun, previewAirframeMass_kg, motor, orkData, manualData, site]);
+
   const notReadyHint = !hasGeometry
     ? 'Upload a .ork file or fill in geometry manually'
     : !motor
@@ -175,38 +194,18 @@ export default function App() {
       <div className="flex h-[calc(100vh-52px)]">
         <div className="w-[420px] flex-shrink-0 bg-gray-900 border-r border-gray-800 overflow-y-auto p-5">
           <p className="text-xs text-gray-400 uppercase tracking-wider mb-3">Rocket</p>
-          <OrkUpload onParsed={data => { setOrkData(data); setError(null); }} onError={setError} />
+          <OrkUpload
+            onParsed={data => { setOrkData(data); setMotor(null); setResult(null); setError(null); }}
+            onError={setError}
+            onClear={() => { setOrkData(null); setMotor(null); setResult(null); setError(null); }}
+          />
 
           {orkData && (
-            <div className="mt-2 p-2 bg-gray-800/50 border border-gray-700 rounded text-xs text-gray-300 space-y-0.5">
-              <p className="font-medium text-gray-200 mb-1">
-                {orkData.rocketName ?? 'Rocket'} — parsed geometry
-              </p>
-              <div className="grid grid-cols-2 gap-x-3">
-                <span className="text-gray-400">Diameter</span>
-                <span>{orkData.bodyDiameter_in?.toFixed(2) ?? '—'} in</span>
-                <span className="text-gray-400">Length</span>
-                <span>{orkData.bodyLength_in?.toFixed(1) ?? '—'} in</span>
-                <span className="text-gray-400">Nose</span>
-                <span>{orkData.noseLength_in?.toFixed(1) ?? '—'} in ({orkData.noseConeType})</span>
-                <span className="text-gray-400">Fin root / tip</span>
-                <span>{orkData.finRootChord_in?.toFixed(2) ?? '—'} / {orkData.finTipChord_in?.toFixed(2) ?? '—'} in</span>
-                <span className="text-gray-400">Fin span</span>
-                <span>{orkData.finSpan_in?.toFixed(2) ?? '—'} in × {orkData.numFins ?? '?'} fins</span>
-                {orkData.cgFromNose_in != null && (
-                  <><span className="text-gray-400">CG from nose</span>
-                  <span>{orkData.cgFromNose_in.toFixed(1)} in</span></>
-                )}
-                {orkData.motorDesignation && (
-                  <><span className="text-gray-400">Motor</span>
-                  <span>{orkData.motorDesignation}</span></>
-                )}
-              </div>
-            </div>
+            <RocketInfoPanel data={orkData} />
           )}
 
           <ManualInputForm values={manualData} onChange={d => setManualData(prev => ({ ...prev, ...d }))} />
-          <MotorPicker selectedMotor={motor} onMotorSelected={setMotor} />
+          <MotorPicker selectedMotor={motor} onMotorSelected={setMotor} onClear={() => setMotor(null)} />
           <SiteConditions value={site} onChange={setSite} />
 
           {error && (
@@ -232,8 +231,18 @@ export default function App() {
           {result ? (
             <>
               <Results6dof result={result} />
+              {previewConfig && previewAirframeMass_kg !== null && (
+                <SimDiagnosticsPanel config={previewConfig} airframeMass_kg={previewAirframeMass_kg} />
+              )}
               <AssumptionsPanel />
             </>
+          ) : previewConfig && previewAirframeMass_kg !== null ? (
+            <div className="max-w-xl">
+              <SimDiagnosticsPanel config={previewConfig} airframeMass_kg={previewAirframeMass_kg} />
+              <div className="mt-4">
+                <AssumptionsPanel />
+              </div>
+            </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-gray-600 gap-6">
               <div className="text-center">

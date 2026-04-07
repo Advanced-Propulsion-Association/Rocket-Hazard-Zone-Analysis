@@ -8,6 +8,7 @@ type MotorMode = 'lookup' | 'rasp' | 'boxcar';
 interface Props {
   selectedMotor: Motor | null;
   onMotorSelected: (motor: Motor) => void;
+  onClear?: () => void;
 }
 
 function motorSummary(motor: Motor): string {
@@ -18,7 +19,7 @@ function motorSummary(motor: Motor): string {
   return `${motor.name}${motor.manufacturer ? ` (${motor.manufacturer})` : ''} — ${I} N·s, ${bt}s burn`;
 }
 
-export function MotorPicker({ selectedMotor, onMotorSelected }: Props) {
+export function MotorPicker({ selectedMotor, onMotorSelected, onClear }: Props) {
   const [mode, setMode] = useState<MotorMode>('lookup');
   const [desig, setDesig] = useState('');
   const [status, setStatus] = useState('');
@@ -92,9 +93,9 @@ export function MotorPicker({ selectedMotor, onMotorSelected }: Props) {
         <div className="mb-2 px-3 py-2 bg-green-900/30 border border-green-700 rounded text-xs text-green-300 flex items-center justify-between">
           <span>{motorSummary(selectedMotor)}</span>
           <button
-            className="ml-2 text-green-500 hover:text-green-300 text-xs"
-            onClick={() => onMotorSelected({ ...selectedMotor, name: selectedMotor.name })}
-            title="Change motor"
+            className="ml-2 text-green-500 hover:text-red-400 text-xs transition-colors"
+            onClick={onClear}
+            title="Clear motor"
           >
             ✕
           </button>

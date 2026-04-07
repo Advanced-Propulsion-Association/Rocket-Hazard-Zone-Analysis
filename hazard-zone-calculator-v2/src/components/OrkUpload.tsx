@@ -5,9 +5,10 @@ import type { OpenRocketData } from '../types';
 interface Props {
   onParsed: (data: OpenRocketData) => void;
   onError: (msg: string) => void;
+  onClear?: () => void;
 }
 
-export function OrkUpload({ onParsed, onError }: Props) {
+export function OrkUpload({ onParsed, onError, onClear }: Props) {
   const [dragging, setDragging] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
 
@@ -38,6 +39,11 @@ export function OrkUpload({ onParsed, onError }: Props) {
     if (file) handleFile(file);
   }, [handleFile]);
 
+  const handleClear = useCallback(() => {
+    setFileName(null);
+    onClear?.();
+  }, [onClear]);
+
   return (
     <div>
       <label
@@ -54,6 +60,14 @@ export function OrkUpload({ onParsed, onError }: Props) {
         </span>
         <input type="file" accept=".ork" className="hidden" onChange={onInputChange} />
       </label>
+      {fileName && (
+        <button
+          onClick={handleClear}
+          className="mt-1 w-full text-xs text-gray-500 hover:text-red-400 transition-colors text-left px-1"
+        >
+          × Clear rocket file
+        </button>
+      )}
     </div>
   );
 }

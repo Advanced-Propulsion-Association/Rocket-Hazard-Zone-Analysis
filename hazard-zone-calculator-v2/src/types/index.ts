@@ -134,8 +134,15 @@ export interface OpenRocketData {
   cpFromNose_in?: number;        // CP from Barrowman (computed or from .ork)
   motorDesignation?: string;
   motorManufacturer?: string;
+  // Stored OpenRocket simulation results for the default motor configuration
   maxApogee_m?: number;
   maxVelocity_ms?: number;
+  maxAcceleration_ms2?: number;
+  maxMach?: number;
+  timeToApogee_s?: number;
+  flightTime_s?: number;
+  groundHitVelocity_ms?: number;
+  launchRodVelocity_ms?: number;
 }
 
 // ─── Motor lookup ─────────────────────────────────────────────────────────────

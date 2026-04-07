@@ -47,7 +47,10 @@ export async function searchMotors(params: SearchParams): Promise<MotorSearchRes
   }));
 }
 
-export async function downloadMotor(motorId: string): Promise<Motor | null> {
+export async function downloadMotor(
+  motorId: string,
+  fallbackMasses?: { propellantMassKg: number; totalMassKg: number },
+): Promise<Motor | null> {
   const res = await fetch(`${TC_BASE}/download.json`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -79,12 +82,17 @@ export async function downloadMotor(motorId: string): Promise<Motor | null> {
 
   const bestSamples = best.samples ?? [];
 
+  // The download endpoint's embedded motor object often omits weight fields.
+  // Prefer search-result masses (passed as fallback) over the download metadata.
+  const propMassKg  = ((meta.propWeightG  as number | undefined) ?? 0) / 1000 || fallbackMasses?.propellantMassKg ?? 0;
+  const totalMassKg = ((meta.totalWeightG as number | undefined) ?? 0) / 1000 || fallbackMasses?.totalMassKg      ?? 0;
+
   return {
     name:             (meta.commonName ?? motorId) as string,
     diameterMm:       (meta.diameter ?? 0) as number,
     lengthMm:         (meta.length ?? 0) as number,
-    propellantMassKg: ((meta.propWeightG ?? 0) as number) / 1000,
-    totalMassKg:      ((meta.totalWeightG ?? 0) as number) / 1000,
+    propellantMassKg: propMassKg,
+    totalMassKg,
     manufacturer:     (meta.manufacturer ?? 'Unknown') as string,
     thrustCurve:      bestSamples.map(s => ({ time: s.time, thrust: s.thrust })),
   };
@@ -97,5 +105,9 @@ export async function lookupMotor(
 ): Promise<Motor | null> {
   const results = await searchMotors({ designation, manufacturer, availability: 'all' });
   if (results.length === 0) return null;
-  return downloadMotor(results[0].motorId);
+  // Pass search-result masses as fallback — the download endpoint often omits weight fields
+  return downloadMotor(results[0].motorId, {
+    propellantMassKg: results[0].propWeightKg,
+    totalMassKg:      results[0].totalWeightKg,
+  });
 }
