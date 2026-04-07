@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { OrkUpload } from './components/OrkUpload';
 import { ManualInputForm } from './components/ManualInputForm';
+import { MotorPicker } from './components/MotorPicker';
 import { RunControls } from './components/RunControls';
 import { Results6dof } from './components/Results6dof';
 import { computeCNAlpha, computeCPFromNose } from './simulation/barrowman';
@@ -78,6 +79,7 @@ function buildConfig6DOF(orkData: OpenRocketData, totalMass_kg: number, motor: C
 export default function App() {
   const [orkData, setOrkData] = useState<OpenRocketData | null>(null);
   const [manualData, setManualData] = useState<Partial<OpenRocketData>>({});
+  const [motor, setMotor] = useState<Config6DOF['motor'] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [numRuns, setNumRuns] = useState(500);
   const [running, setRunning] = useState(false);
@@ -93,23 +95,19 @@ export default function App() {
       setError('Please upload a .ork file or enter geometry manually.');
       return;
     }
+    if (!motor) {
+      setError('Please select a motor (ThrustCurve.org lookup, .eng file, or boxcar).');
+      return;
+    }
 
     setRunning(true);
     setProgress(0);
     setError(null);
 
-    const placeholderMotor: Config6DOF['motor'] = {
-      name: 'Placeholder',
-      diameterMm: 29,
-      lengthMm: 98,
-      propellantMassKg: 0.05,
-      totalMassKg: 0.12,
-      manufacturer: '',
-      thrustCurve: [{ time: 0, thrust: 50 }, { time: 1, thrust: 0 }],
-    };
-
-    const totalMass_kg = data.bodyLength_in ? data.bodyLength_in * 0.02 * 0.453592 + 0.5 : 1.0;
-    const config = buildConfig6DOF(data, totalMass_kg, placeholderMotor);
+    // Airframe dry mass heuristic (kg): length-based estimate without motor
+    const airframeMass_kg = data.bodyLength_in ? data.bodyLength_in * 0.015 * 0.453592 + 0.3 : 0.5;
+    const totalMass_kg = airframeMass_kg + motor.totalMassKg;
+    const config = buildConfig6DOF(data, totalMass_kg, motor);
 
     workerRef.current?.terminate();
     workerRef.current = new Worker(
@@ -151,6 +149,7 @@ export default function App() {
           <p className="text-xs text-gray-400 uppercase tracking-wider mb-3">Rocket</p>
           <OrkUpload onParsed={data => { setOrkData(data); setError(null); }} onError={setError} />
           <ManualInputForm values={manualData} onChange={d => setManualData(prev => ({ ...prev, ...d }))} />
+          <MotorPicker selectedMotor={motor} onMotorSelected={setMotor} />
 
           {error && (
             <div className="mt-3 p-3 bg-red-900/30 border border-red-700 rounded text-xs text-red-300">
@@ -164,7 +163,7 @@ export default function App() {
             onRun={handleRun}
             running={running}
             progress={progress}
-            canRun={!!(effectiveData as OpenRocketData)?.bodyDiameter_in}
+            canRun={!!(effectiveData as OpenRocketData)?.bodyDiameter_in && !!motor}
           />
         </div>
 

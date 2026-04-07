@@ -39,10 +39,10 @@ export async function searchMotors(params: SearchParams): Promise<MotorSearchRes
     totalImpulseNs: r.totImpulseNs as number,
     avgThrustN:     r.avgThrustN as number,
     burnTimeS:      r.burnTimeS as number,
-    propWeightG:    r.propWeightG as number,
-    totalWeightG:   r.totalWeightG as number,
-    diameter:       r.diameter as number,
-    length:         r.length as number,
+    propWeightKg:   ((r.propWeightG ?? 0) as number) / 1000,
+    totalWeightKg:  ((r.totalWeightG ?? 0) as number) / 1000,
+    diameterMm:     r.diameter as number,
+    lengthMm:       r.length as number,
     motorClass:     r.impulseClass as string,
   }));
 }
