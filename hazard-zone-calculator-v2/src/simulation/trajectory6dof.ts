@@ -159,10 +159,11 @@ function deriv(
     vaPerpZ = vaz - vaPar * bz_i;
     vaPerpMag = Math.sqrt(vaPerpX * vaPerpX + vaPerpY * vaPerpY + vaPerpZ * vaPerpZ);
     if (vaPerpMag > 1e-6) {
-      // Normal force perpendicular to body axis, toward the airspeed vector
-      Nx = Fnormal * vaPerpX / vaPerpMag;
-      Ny = Fnormal * vaPerpY / vaPerpMag;
-      Nz = Fnormal * vaPerpZ / vaPerpMag;
+      // Normal force is perpendicular to body axis, opposing the cross-flow (into the wind).
+      // Acts in the -vaPerpDir direction: pushes the rocket body toward the airspeed vector.
+      Nx = -Fnormal * vaPerpX / vaPerpMag;
+      Ny = -Fnormal * vaPerpY / vaPerpMag;
+      Nz = -Fnormal * vaPerpZ / vaPerpMag;
     }
   }
 
@@ -206,7 +207,10 @@ function deriv(
     const crossY = bz_i * ph - bx_i * rh;
     const crossZ = bx_i * qh - by_i * ph;
 
-    const scale = -momentArm * Fnormal;
+    // Moment = r_{CG→CP} × F_N = (-momentArm * noseDir) × (-Fnormal * vaPerpDir_hat)
+    //        = momentArm * Fnormal * (noseDir × vaPerpDir_hat)
+    // Positive for stable rocket (CP aft) gives restoring (negative dq when nose up).
+    const scale = momentArm * Fnormal;
     Mm = scale * (crossX * bodyYx + crossY * bodyYy + crossZ * bodyYz);
     Nm = scale * (crossX * bodyZx + crossY * bodyZy + crossZ * bodyZz);
   }
@@ -221,14 +225,17 @@ function deriv(
   const Lm = dampP; // roll moment (no aerodynamic roll excitation for symmetric rocket)
 
   // --- Euler equations (body frame, symmetric: Izz = Iyy) ---
+  // Standard form: Iyy*q_dot = Mm + (Izz-Ixx)*r*p = Mm + (Iyy-Ixx)*r*p
+  //               Izz*r_dot = Nm + (Ixx-Iyy)*p*q = Nm - (Iyy-Ixx)*p*q
   const dp = Lm / ctx.Ixx;
-  const dq = (Mm - (ctx.Iyy - ctx.Ixx) * p * r) / ctx.Iyy;
-  const dr = (Nm + (ctx.Iyy - ctx.Ixx) * p * q) / ctx.Iyy;
+  const dq = (Mm + (ctx.Iyy - ctx.Ixx) * p * r) / ctx.Iyy;
+  const dr = (Nm - (ctx.Iyy - ctx.Ixx) * p * q) / ctx.Iyy;
 
   // --- kinematic equations ---
-  const tanTheta = Math.tan(theta);
   const cosTheta = Math.cos(theta);
   const cosThetaGuard = Math.abs(cosTheta) < 0.01 ? Math.sign(cosTheta || 1) * 0.01 : cosTheta;
+  // Guard tanTheta against gimbal lock singularity at theta = ±90°
+  const tanTheta = Math.sin(theta) / cosThetaGuard;
 
   const dphi = p + (q * sp + r * cp) * tanTheta;
   const dtheta = q * cp - r * sp;
