@@ -4,6 +4,9 @@ import { ManualInputForm } from './components/ManualInputForm';
 import { MotorPicker } from './components/MotorPicker';
 import { RunControls } from './components/RunControls';
 import { Results6dof } from './components/Results6dof';
+import { SiteConditions, DEFAULT_SITE_CONDITIONS } from './components/SiteConditions';
+import type { SiteConditionsValue } from './components/SiteConditions';
+import { AssumptionsPanel } from './components/AssumptionsPanel';
 import { computeCNAlpha, computeCPFromNose } from './simulation/barrowman';
 import { lookupMotor } from './motors/thrustcurve';
 import { estimateMOI, estimateCmq, estimateClp } from './simulation/moi';
@@ -14,7 +17,12 @@ import type {
 
 const IN_TO_M = 0.0254;
 
-function buildConfig6DOF(orkData: OpenRocketData, totalMass_kg: number, motor: Config6DOF['motor']): Config6DOF {
+function buildConfig6DOF(
+  orkData: OpenRocketData,
+  totalMass_kg: number,
+  motor: Config6DOF['motor'],
+  site: SiteConditionsValue,
+): Config6DOF {
   const d_m = orkData.bodyDiameter_in * IN_TO_M;
   const L_m = orkData.bodyLength_in * IN_TO_M;
   const noseL_m = orkData.noseLength_in * IN_TO_M;
@@ -69,12 +77,12 @@ function buildConfig6DOF(orkData: OpenRocketData, totalMass_kg: number, motor: C
     Clp,
     thrustCurve: motor.thrustCurve.map(pt => [pt.time, pt.thrust] as [number, number]),
     propellantMass_kg: motor.propellantMassKg,
-    launchAltitude_m: 0,
+    launchAltitude_m: site.launchAltitude_m,
     launchAngle_rad: 5 * Math.PI / 180,
     launchAzimuth_deg: 0,
-    windSpeed_ms: 8.94,
-    windDirection_rad: 0,
-    siteTemp_K: 288.15,
+    windSpeed_ms: site.windSpeed_ms,
+    windDirection_rad: site.windDirection_deg * Math.PI / 180,
+    siteTemp_K: site.siteTemp_K,
     initialRollRate_rads: 0,
   };
 }
@@ -83,6 +91,7 @@ export default function App() {
   const [orkData, setOrkData] = useState<OpenRocketData | null>(null);
   const [manualData, setManualData] = useState<Partial<OpenRocketData>>({});
   const [motor, setMotor] = useState<Config6DOF['motor'] | null>(null);
+  const [site, setSite] = useState<SiteConditionsValue>(DEFAULT_SITE_CONDITIONS);
   const [error, setError] = useState<string | null>(null);
   const [numRuns, setNumRuns] = useState(500);
   const [running, setRunning] = useState(false);
@@ -118,7 +127,7 @@ export default function App() {
     // Airframe dry mass heuristic (kg): length-based estimate without motor
     const airframeMass_kg = data.bodyLength_in ? data.bodyLength_in * 0.015 * 0.453592 + 0.3 : 0.5;
     const totalMass_kg = airframeMass_kg + motor.totalMassKg;
-    const config = buildConfig6DOF(data, totalMass_kg, motor);
+    const config = buildConfig6DOF(data, totalMass_kg, motor, site);
 
     workerRef.current?.terminate();
     workerRef.current = new Worker(
@@ -142,7 +151,7 @@ export default function App() {
     };
 
     workerRef.current.postMessage({ type: 'run', config, numRuns });
-  }, [orkData, manualData, motor, numRuns]);
+  }, [orkData, manualData, motor, numRuns, site]);
 
   const effectiveData = orkData ?? manualData;
   const hasGeometry = !!(effectiveData as OpenRocketData)?.bodyDiameter_in;
@@ -198,6 +207,7 @@ export default function App() {
 
           <ManualInputForm values={manualData} onChange={d => setManualData(prev => ({ ...prev, ...d }))} />
           <MotorPicker selectedMotor={motor} onMotorSelected={setMotor} />
+          <SiteConditions value={site} onChange={setSite} />
 
           {error && (
             <div className="mt-3 p-3 bg-red-900/30 border border-red-700 rounded text-xs text-red-300">
@@ -220,12 +230,18 @@ export default function App() {
 
         <div className="flex-1 overflow-y-auto p-5">
           {result ? (
-            <Results6dof result={result} />
+            <>
+              <Results6dof result={result} />
+              <AssumptionsPanel />
+            </>
           ) : (
-            <div className="flex items-center justify-center h-full text-gray-600">
+            <div className="flex flex-col items-center justify-center h-full text-gray-600 gap-6">
               <div className="text-center">
                 <p className="text-4xl mb-3">🚀</p>
                 <p>Upload a .ork file and run the simulation to see results.</p>
+              </div>
+              <div className="w-full max-w-xl">
+                <AssumptionsPanel />
               </div>
             </div>
           )}

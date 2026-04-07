@@ -74,38 +74,47 @@ function getNum(el: Element | null, tag: string): number {
 }
 
 /**
+ * Parse a radius string that may be:
+ *   "0.028321"       → direct value
+ *   "auto 0.028321"  → auto-set with an explicit value embedded
+ *   "auto"           → pure auto (no explicit value) → 0
+ */
+function parseRadiusStr(txt: string): number {
+  const t = txt.trim().toLowerCase();
+  if (!t) return 0;
+  // Strip optional "auto " prefix and parse the numeric part
+  const numStr = t.startsWith('auto') ? t.replace(/^auto\s*/, '') : t;
+  if (!numStr) return 0;
+  const n = parseFloat(numStr);
+  return isFinite(n) && n > 0 ? n : 0;
+}
+
+/**
  * Get outer radius from a component element.
- * OpenRocket uses different tag names across versions:
- *   BodyTube: <radius>, <outerradius>, <outsideradius>
- *   NoseCone: <aftradius> (aft = base of nose = body radius), also <radius>
- * Also checks the 'radius' attribute (some formats use attributes).
- * Ignores "auto" values.
+ * OpenRocket stores radius in different child tags across versions:
+ *   BodyTube:  <radius>         (may be "auto 0.025" or plain "0.025")
+ *   NoseCone:  <aftradius>      (rear radius matching body tube)
+ *   Couplers:  <outerradius>
+ * Values can be bare numbers OR "auto <number>" — parseFloat alone would return NaN
+ * for the "auto X" form, so we strip the "auto" prefix first.
  */
 function getRadius(el: Element | null): number {
   if (!el) return 0;
   for (const tag of ['radius', 'outerradius', 'outsideradius', 'aftradius']) {
     const child = el.getElementsByTagName(tag)[0];
     if (child) {
-      const txt = (child.textContent ?? '').trim().toLowerCase();
-      if (txt && txt !== 'auto') {
-        const n = parseFloat(txt);
-        if (isFinite(n) && n > 0) return n;
-      }
+      const r = parseRadiusStr(child.textContent ?? '');
+      if (r > 0) return r;
     }
   }
-  // Fallback: check 'radius' attribute directly on the element
   const attr = el.getAttribute('radius');
-  if (attr && attr.toLowerCase() !== 'auto') {
-    const n = parseFloat(attr);
-    if (isFinite(n) && n > 0) return n;
+  if (attr) {
+    const r = parseRadiusStr(attr);
+    if (r > 0) return r;
   }
   return 0;
 }
 
-/** Return all elements with any of the given tag names (document-wide). */
-function getAllByTags(doc: Document, ...tags: string[]): Element[] {
-  return tags.flatMap(t => Array.from(doc.getElementsByTagName(t)));
-}
 
 function mapNoseShape(shape: string): OpenRocketData['noseConeType'] {
   const s = shape.toLowerCase();
@@ -166,15 +175,28 @@ export async function parseOrkFile(buffer: ArrayBuffer): Promise<OpenRocketData>
   const finSpan_m  = getNum(finEl, 'height');
   const finSweep_m = getNum(finEl, 'sweeplength');
 
-  // ── Motor (prefer booster — last motor element in doc) ─────────────────────
-  const allMotorEls = getAllByTags(doc, 'motor');
-  const motorEl = allMotorEls.length > 0 ? allMotorEls[allMotorEls.length - 1] : null;
-  const motorDesignation  = motorEl
-    ? (motorEl.getAttribute('designation') || getText(motorEl, 'designation') || undefined)
-    : undefined;
-  const motorManufacturer = motorEl
-    ? (motorEl.getAttribute('manufacturer') || getText(motorEl, 'manufacturer') || undefined)
-    : undefined;
+  // ── Motor — match to default motor configuration ─────────────────────────
+  // OpenRocket stores multiple <motor configid="..."> elements (one per flight config).
+  // Each <motorconfiguration> has a configid; the default one is marked default="true".
+  // We find the default configid and then pick the motor element matching it.
+  // For multi-stage, prefer the booster motor (last matching motor element).
+  const allMotorConfigEls = Array.from(doc.getElementsByTagName('motorconfiguration'));
+  const defaultConfigEl =
+    allMotorConfigEls.find(el => el.getAttribute('default') === 'true') ??
+    allMotorConfigEls[0] ?? null;
+  const defaultConfigId = defaultConfigEl?.getAttribute('configid') ?? null;
+
+  const allMotorEls = Array.from(doc.getElementsByTagName('motor'));
+  // Filter to motors matching the default config; fall back to all motors
+  const matchingMotors = defaultConfigId
+    ? allMotorEls.filter(el => el.getAttribute('configid') === defaultConfigId)
+    : allMotorEls;
+  // Use the last matching motor (booster for multi-stage; only motor for single-stage)
+  const motorEl = matchingMotors.length > 0 ? matchingMotors[matchingMotors.length - 1] : null;
+
+  // Motor designation and manufacturer are child elements (not attributes) in OR XML
+  const motorDesignation  = motorEl ? (getText(motorEl, 'designation') || undefined) : undefined;
+  const motorManufacturer = motorEl ? (getText(motorEl, 'manufacturer') || undefined) : undefined;
 
   // ── Stored simulation results ─────────────────────────────────────────────
   const altEl = doc.getElementsByTagName('maxaltitude')[0] ?? null;
