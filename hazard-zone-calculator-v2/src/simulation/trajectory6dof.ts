@@ -6,7 +6,7 @@
  */
 
 import type { Config6DOF, State6DOF, TrajectoryPoint6DOF } from '../types';
-import { airDensity, speedOfSound, isaTemperatureOffset, isaPressure, windAtAltitude } from './atmosphere';
+import { airDensity, speedOfSound, isaTemperatureOffset, windAtAltitude } from './atmosphere';
 import { cdMachCorrection } from './aerodynamics';
 import { thrustAt, burnTime } from './motor';
 
@@ -70,7 +70,7 @@ function deriv(
   t: number,
   ctx: DerivContext,
 ): { ddt: StateVec; alpha: number; mach: number; thrustMag: number; dragMag: number } {
-  const [x, y, z, vx, vy, vz, phi, theta, psi, p, q, r, mass] = sv;
+  const [_x, _y, z, vx, vy, vz, phi, theta, psi, p, q, r, mass] = sv;
 
   const alt = Math.max(z + ctx.launchAlt, 0);
 
