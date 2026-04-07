@@ -5,6 +5,7 @@ import { MotorPicker } from './components/MotorPicker';
 import { RunControls } from './components/RunControls';
 import { Results6dof } from './components/Results6dof';
 import { computeCNAlpha, computeCPFromNose } from './simulation/barrowman';
+import { lookupMotor } from './motors/thrustcurve';
 import { estimateMOI, estimateCmq, estimateClp } from './simulation/moi';
 import type {
   OpenRocketData, Config6DOF, MonteCarloResult,
@@ -91,6 +92,14 @@ export default function App() {
 
   useEffect(() => () => { workerRef.current?.terminate(); }, []);
 
+  // Auto-lookup motor when a .ork file with a motor designation is loaded
+  useEffect(() => {
+    if (!orkData?.motorDesignation || motor) return;
+    lookupMotor(orkData.motorDesignation, orkData.motorManufacturer)
+      .then(m => { if (m) setMotor(m); })
+      .catch(() => {}); // silent fail — user can select manually
+  }, [orkData]);
+
   const handleRun = useCallback(() => {
     const data = orkData ?? (manualData as OpenRocketData);
     if (!data?.bodyDiameter_in) {
@@ -136,6 +145,14 @@ export default function App() {
   }, [orkData, manualData, motor, numRuns]);
 
   const effectiveData = orkData ?? manualData;
+  const hasGeometry = !!(effectiveData as OpenRocketData)?.bodyDiameter_in;
+  const readyToRun = hasGeometry && !!motor;
+
+  const notReadyHint = !hasGeometry
+    ? 'Upload a .ork file or fill in geometry manually'
+    : !motor
+    ? 'Select a motor above to enable the simulation'
+    : null;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -159,13 +176,16 @@ export default function App() {
             </div>
           )}
 
+          {notReadyHint && !running && (
+            <p className="mt-3 text-xs text-yellow-500">{notReadyHint}</p>
+          )}
           <RunControls
             numRuns={numRuns}
             onNumRunsChange={setNumRuns}
             onRun={handleRun}
             running={running}
             progress={progress}
-            canRun={!!(effectiveData as OpenRocketData)?.bodyDiameter_in && !!motor}
+            canRun={readyToRun}
           />
         </div>
 
