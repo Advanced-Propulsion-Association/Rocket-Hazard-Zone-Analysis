@@ -133,7 +133,7 @@ export default function App() {
     };
 
     workerRef.current.postMessage({ type: 'run', config, numRuns });
-  }, [orkData, manualData, numRuns]);
+  }, [orkData, manualData, motor, numRuns]);
 
   const effectiveData = orkData ?? manualData;
 
