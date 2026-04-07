@@ -1,20 +1,26 @@
 /**
  * OpenRocket .ork file parser
  *
- * .ork files are XML (optionally GZIP-compressed). All geometry is in meters.
- * Uses only browser-native APIs — no new npm dependencies.
+ * .ork files are ZIP archives containing an XML document.
+ * Older .ork files may be plain XML or gzip-compressed XML.
  */
 
+import { unzipSync } from 'fflate';
 import type { OpenRocketData } from '../types';
 
 const M_TO_IN = 1 / 0.0254;
 
-export function isGzip(buffer: ArrayBuffer): boolean {
+function isZip(buffer: ArrayBuffer): boolean {
+  const bytes = new Uint8Array(buffer);
+  return bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b;
+}
+
+function isGzip(buffer: ArrayBuffer): boolean {
   const bytes = new Uint8Array(buffer);
   return bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
 }
 
-export async function decompressGzip(buffer: ArrayBuffer): Promise<ArrayBuffer> {
+async function decompressGzip(buffer: ArrayBuffer): Promise<ArrayBuffer> {
   const ds = new DecompressionStream('gzip');
   const writer = ds.writable.getWriter();
   writer.write(new Uint8Array(buffer));
@@ -30,11 +36,29 @@ export async function decompressGzip(buffer: ArrayBuffer): Promise<ArrayBuffer> 
   }
   const out = new Uint8Array(totalLen);
   let offset = 0;
-  for (const chunk of chunks) {
-    out.set(chunk, offset);
-    offset += chunk.length;
-  }
+  for (const chunk of chunks) { out.set(chunk, offset); offset += chunk.length; }
   return out.buffer;
+}
+
+/** Extract XML string from .ork buffer (ZIP, gzip, or plain XML). */
+async function extractXml(buffer: ArrayBuffer): Promise<string> {
+  if (isZip(buffer)) {
+    const files = unzipSync(new Uint8Array(buffer));
+    // The XML entry is typically the only file, or named *.ork / rocket.ork
+    const entries = Object.entries(files);
+    if (entries.length === 0) throw new Error('Empty ZIP archive in .ork file');
+    // Prefer entry ending in .ork or named "rocket.ork"; fall back to first entry
+    const [, data] =
+      entries.find(([name]) => name.endsWith('.ork') || name === 'rocket.ork') ??
+      entries[0];
+    return new TextDecoder('utf-8').decode(data);
+  }
+  if (isGzip(buffer)) {
+    const raw = await decompressGzip(buffer);
+    return new TextDecoder('utf-8').decode(raw);
+  }
+  // Plain XML
+  return new TextDecoder('utf-8').decode(buffer);
 }
 
 function getText(el: Element | null, tag: string): string {
@@ -59,8 +83,7 @@ function mapNoseShape(shape: string): OpenRocketData['noseConeType'] {
 }
 
 export async function parseOrkFile(buffer: ArrayBuffer): Promise<OpenRocketData> {
-  const raw = isGzip(buffer) ? await decompressGzip(buffer) : buffer;
-  const xmlString = new TextDecoder('utf-8').decode(raw);
+  const xmlString = await extractXml(buffer);
   const doc = new DOMParser().parseFromString(xmlString, 'text/xml');
 
   // Rocket name
