@@ -12,6 +12,8 @@ interface Props {
   onComputing: () => void;
   onResult: (r: HazardZoneResult) => void;
   onError: (msg: string) => void;
+  onCoordsChange?: (lat: number, lon: number) => void;
+  onWindBearingChange?: (bearing: number | null) => void;
 }
 
 type MotorInputMode = 'lookup' | 'rasp' | 'boxcar';
@@ -32,7 +34,7 @@ async function lookupElevation(lat: number, lon: number): Promise<number | null>
   }
 }
 
-export function Tier2Form({ tier, onComputing, onResult, onError }: Props) {
+export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange, onWindBearingChange }: Props) {
   const isTier3 = tier === 'tier3';
 
   // Core geometry (Tier 2+)
@@ -68,6 +70,7 @@ export function Tier2Form({ tier, onComputing, onResult, onError }: Props) {
   const [gpsStatus, setGpsStatus] = useState('');
   const [lookingUp, setLookingUp] = useState(false);
   const [showGps, setShowGps]   = useState(false);
+  const [windBearing, setWindBearing] = useState('');
 
   // Motor
   const [motorMode, setMotorMode]   = useState<MotorInputMode>('lookup');
@@ -96,9 +99,11 @@ export function Tier2Form({ tier, onComputing, onResult, onError }: Props) {
     setGpsStatus('Getting location...');
     navigator.geolocation.getCurrentPosition(
       pos => {
-        setLat(pos.coords.latitude.toFixed(5));
-        setLon(pos.coords.longitude.toFixed(5));
+        const { latitude, longitude } = pos.coords;
+        setLat(latitude.toFixed(5));
+        setLon(longitude.toFixed(5));
         setGpsStatus(`Location acquired — click Lookup Elevation`);
+        onCoordsChange?.(latitude, longitude);
       },
       () => setGpsStatus('Location permission denied.'),
     );
@@ -116,6 +121,7 @@ export function Tier2Form({ tier, onComputing, onResult, onError }: Props) {
     } else {
       setSiteElev(elev.toFixed(0));
       setGpsStatus(`Set to ${elev.toFixed(0)} ft MSL`);
+      onCoordsChange?.(latN, lonN);
     }
   };
 
@@ -673,6 +679,24 @@ export function Tier2Form({ tier, onComputing, onResult, onError }: Props) {
               )}
             </div>
           )}
+        </div>
+
+        {/* Wind direction for map overlay */}
+        <div className="mt-3">
+          <Field label="Wind direction (° from North, optional)">
+            <input type="number" min="0" max="360" step="1"
+              value={windBearing}
+              onChange={e => {
+                setWindBearing(e.target.value);
+                const v = parseFloat(e.target.value);
+                onWindBearingChange?.(isNaN(v) ? null : v % 360);
+              }}
+              placeholder="e.g. 270 = west wind"
+              className="input-field" />
+          </Field>
+          <p className="text-xs text-slate-500 mt-1">
+            Shown as a wind arrow on the hazard zone map. 0 = N, 90 = E, 180 = S, 270 = W.
+          </p>
         </div>
       </Section>
 

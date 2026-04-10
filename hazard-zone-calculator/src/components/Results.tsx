@@ -5,9 +5,12 @@ import PlotlyModule from 'react-plotly.js';
 const Plot = ((PlotlyModule as any).default ?? PlotlyModule) as React.ComponentType<any>;
 import type { HazardZoneResult } from '../types';
 import type React from 'react';
+import { MapPanel } from './MapPanel';
 
 interface Props {
   result: HazardZoneResult;
+  launchCoords?: { lat: number; lon: number } | null;
+  windBearing?: number | null;
 }
 
 const M_TO_FT = 3.28084;
@@ -22,7 +25,7 @@ function downloadFile(content: string, filename: string, mimeType: string) {
   URL.revokeObjectURL(url);
 }
 
-export function Results({ result }: Props) {
+export function Results({ result, launchCoords, windBearing }: Props) {
   const r = result;
   const quarterFt = r.quarterAltitudeRule_m * M_TO_FT;
   const [showPlot, setShowPlot] = useState(true);
@@ -72,6 +75,15 @@ export function Results({ result }: Props) {
       }
     }
     downloadFile(rows.join('\n'), `hazard-trajectory-${Date.now()}.csv`, 'text/csv');
+  };
+
+  const handleExportTableCsv = () => {
+    if (!r.tier1Table) return;
+    const rows = ['apogee_ft,hazard_radius_ft,hazard_radius_m'];
+    for (const row of r.tier1Table) {
+      rows.push(`${row.altitude_ft},${row.hazardRadius_ft.toFixed(0)},${row.hazardRadius_m.toFixed(0)}`);
+    }
+    downloadFile(rows.join('\n'), `hazard-range-table-${Date.now()}.csv`, 'text/csv');
   };
 
   // Build trajectory traces
@@ -144,7 +156,19 @@ export function Results({ result }: Props) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" id="results-print-root">
+      {/* Print-only header */}
+      <div className="hidden print:block border-b border-slate-600 pb-4 mb-2">
+        <h1 className="text-xl font-bold text-black">Amateur Rocket Hazard Zone Analysis</h1>
+        <p className="text-sm text-gray-600 mt-1">
+          Generated {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+          {launchCoords ? ` · Launch site: ${launchCoords.lat.toFixed(5)}°, ${launchCoords.lon.toFixed(5)}°` : ''}
+        </p>
+        <p className="text-sm text-gray-600">
+          3-DOF ballistic trajectory · NAR/Tripoli safety envelope · 1976 US Standard Atmosphere
+        </p>
+      </div>
+
       {/* Warnings */}
       {r.warnings.length > 0 && (
         <div className="space-y-2">
@@ -277,6 +301,25 @@ export function Results({ result }: Props) {
         </div>
       </div>
 
+      {/* Hazard zone map */}
+      {launchCoords && (
+        <div className="rounded-xl border border-slate-700 overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/60">
+            <p className="text-sm font-medium text-slate-200">Hazard Zone Map</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Red circle = {r.hazardRadius_ft.toFixed(0)} ft ({r.hazardRadius_m.toFixed(0)} m) radius
+              {windBearing != null ? ` · Blue arrow = wind from ${windBearing}°` : ''}
+            </p>
+          </div>
+          <MapPanel
+            lat={launchCoords.lat}
+            lon={launchCoords.lon}
+            hazardRadius_m={r.hazardRadius_m}
+            windBearing={windBearing}
+          />
+        </div>
+      )}
+
       {/* OpenRocket apogee comparison */}
       {r.orkApogee_m != null && (
         <div className="rounded-xl border border-violet-700 bg-violet-900/20 px-5 py-4">
@@ -332,8 +375,60 @@ export function Results({ result }: Props) {
         </div>
       )}
 
+      {/* Tier 1 altitude range table */}
+      {r.tier1Table && r.tier1Table.length > 0 && (
+        <div className="rounded-xl border border-slate-700 bg-slate-800/40 overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-700 bg-slate-800/60 flex justify-between items-center">
+            <div>
+              <p className="text-sm font-medium text-slate-200">Altitude Range Table</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Hazard radius at each altitude increment — same site elevation and build quality.
+              </p>
+            </div>
+            <button
+              onClick={handleExportTableCsv}
+              className="text-xs px-3 py-1.5 rounded border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white transition-colors shrink-0"
+            >
+              Download CSV
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-700">
+                  <th className="text-left px-5 py-2.5 text-xs text-slate-400 uppercase tracking-wide font-medium">Apogee (ft AGL)</th>
+                  <th className="text-right px-5 py-2.5 text-xs text-slate-400 uppercase tracking-wide font-medium">Hazard Radius (ft)</th>
+                  <th className="text-right px-5 py-2.5 text-xs text-slate-400 uppercase tracking-wide font-medium">Hazard Radius (m)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {r.tier1Table.map((row) => {
+                  const isTarget = row.altitude_ft === Math.round(r.maxApogee_ft / (r.maxApogee_ft >= 10000 ? 1000 : 500)) * (r.maxApogee_ft >= 10000 ? 1000 : 500);
+                  return (
+                    <tr
+                      key={row.altitude_ft}
+                      className={`border-b border-slate-700/50 ${isTarget ? 'bg-blue-600/10' : 'hover:bg-slate-700/30'}`}
+                    >
+                      <td className={`px-5 py-2 tabular-nums ${isTarget ? 'text-blue-300 font-medium' : 'text-slate-200'}`}>
+                        {row.altitude_ft.toLocaleString()}
+                      </td>
+                      <td className={`px-5 py-2 text-right tabular-nums ${isTarget ? 'text-blue-300 font-medium' : 'text-slate-200'}`}>
+                        {row.hazardRadius_ft.toFixed(0)}
+                      </td>
+                      <td className={`px-5 py-2 text-right tabular-nums ${isTarget ? 'text-blue-300 font-medium' : 'text-slate-400'}`}>
+                        {row.hazardRadius_m.toFixed(0)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Export buttons */}
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex gap-3 flex-wrap print:hidden">
         <button
           onClick={handleExportResults}
           className="text-xs px-3 py-1.5 rounded border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white transition-colors"
@@ -348,6 +443,12 @@ export function Results({ result }: Props) {
             Export Trajectory CSV
           </button>
         )}
+        <button
+          onClick={() => window.print()}
+          className="text-xs px-3 py-1.5 rounded border border-blue-600 hover:border-blue-400 text-blue-400 hover:text-blue-200 transition-colors"
+        >
+          Print / Save as PDF
+        </button>
       </div>
 
       {/* Trajectory plot */}
@@ -364,7 +465,7 @@ export function Results({ result }: Props) {
             </div>
             <button
               onClick={() => setShowPlot(v => !v)}
-              className="text-xs text-slate-400 hover:text-slate-200 px-2 py-1 rounded border border-slate-600 hover:border-slate-400 transition-colors"
+              className="text-xs text-slate-400 hover:text-slate-200 px-2 py-1 rounded border border-slate-600 hover:border-slate-400 transition-colors print:hidden"
             >
               {showPlot ? 'Hide' : 'Show'}
             </button>

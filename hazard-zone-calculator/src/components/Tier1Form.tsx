@@ -6,6 +6,8 @@ interface Props {
   onComputing: () => void;
   onResult: (r: HazardZoneResult) => void;
   onError: (msg: string) => void;
+  onCoordsChange?: (lat: number, lon: number) => void;
+  onWindBearingChange?: (bearing: number | null) => void;
 }
 
 
@@ -26,7 +28,7 @@ async function lookupElevation(lat: number, lon: number): Promise<number | null>
   }
 }
 
-export function Tier1Form({ onComputing, onResult, onError }: Props) {
+export function Tier1Form({ onComputing, onResult, onError, onCoordsChange, onWindBearingChange }: Props) {
   const [apogee, setApogee] = useState('');
   const [siteElev, setSiteElev] = useState('0');
   const [buildQuality, setBuildQuality] = useState('1.0');
@@ -37,6 +39,7 @@ export function Tier1Form({ onComputing, onResult, onError }: Props) {
   const [lon, setLon] = useState('');
   const [gpsStatus, setGpsStatus] = useState('');
   const [lookingUp, setLookingUp] = useState(false);
+  const [windBearing, setWindBearing] = useState('');
 
   const handleGpsLookup = async () => {
     const latN = parseFloat(lat);
@@ -54,6 +57,7 @@ export function Tier1Form({ onComputing, onResult, onError }: Props) {
     } else {
       setSiteElev(elev_ft.toFixed(0));
       setGpsStatus(`Elevation set to ${elev_ft.toFixed(0)} ft MSL`);
+      onCoordsChange?.(latN, lonN);
     }
   };
 
@@ -66,6 +70,7 @@ export function Tier1Form({ onComputing, onResult, onError }: Props) {
         setLat(latitude.toFixed(5));
         setLon(longitude.toFixed(5));
         setGpsStatus(`Location: ${latitude.toFixed(4)}\u00b0, ${longitude.toFixed(4)}\u00b0 — click Lookup Elevation`);
+        onCoordsChange?.(latitude, longitude);
       },
       () => setGpsStatus('Location permission denied.'),
     );
@@ -94,8 +99,18 @@ export function Tier1Form({ onComputing, onResult, onError }: Props) {
     onComputing();
     setTimeout(() => {
       try {
-        const result = computeTier1HazardZone(apogee_ft, elev_ft, parseFloat(buildQuality));
-        onResult(result);
+        const bq = parseFloat(buildQuality) || 1.0;
+        const result = computeTier1HazardZone(apogee_ft, elev_ft, bq);
+
+        // Build altitude table at 500 ft steps (1000 ft steps above 10,000 ft)
+        const step = apogee_ft >= 10000 ? 1000 : 500;
+        const tier1Table: Array<{ altitude_ft: number; hazardRadius_ft: number; hazardRadius_m: number }> = [];
+        for (let alt = step; alt <= apogee_ft; alt += step) {
+          const r = computeTier1HazardZone(alt, elev_ft, bq);
+          tier1Table.push({ altitude_ft: alt, hazardRadius_ft: r.hazardRadius_ft, hazardRadius_m: r.hazardRadius_m });
+        }
+
+        onResult({ ...result, tier1Table });
       } catch (err) {
         onError('Simulation error: ' + String(err));
       }
@@ -252,6 +267,26 @@ export function Tier1Form({ onComputing, onResult, onError }: Props) {
             {gpsStatus}
           </p>
         )}
+        <div className="pt-1 border-t border-slate-600/60">
+          <label className="block">
+            <span className="text-xs text-slate-400">Wind direction (° from North, 0–360)</span>
+            <input
+              type="number"
+              min="0" max="360" step="1"
+              value={windBearing}
+              onChange={e => {
+                setWindBearing(e.target.value);
+                const v = parseFloat(e.target.value);
+                onWindBearingChange?.(isNaN(v) ? null : v % 360);
+              }}
+              placeholder="e.g. 270 = west wind"
+              className="mt-1 w-full input-field text-sm"
+            />
+          </label>
+          <p className="text-xs text-slate-500 mt-1">
+            Optional — shown as a wind arrow on the hazard zone map. 0 = N, 90 = E, 180 = S, 270 = W.
+          </p>
+        </div>
       </div>
 
       <button

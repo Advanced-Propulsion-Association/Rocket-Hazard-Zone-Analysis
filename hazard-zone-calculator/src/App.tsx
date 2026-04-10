@@ -12,6 +12,8 @@ export default function App() {
   const [computing, setComputing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [debugLog, setDebugLog] = useState<string>('');
+  const [launchCoords, setLaunchCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [windBearing, setWindBearing] = useState<number | null>(null);
 
   const handleResult = (r: HazardZoneResult) => {
     // Build a plain-text debug dump before trying to render
@@ -75,6 +77,8 @@ export default function App() {
               onComputing={() => { setComputing(true); setError(null); setDebugLog('Computing...'); }}
               onResult={handleResult}
               onError={handleError}
+              onCoordsChange={(lat, lon) => setLaunchCoords({ lat, lon })}
+              onWindBearingChange={(b) => setWindBearing(b)}
             />
           )}
           {(tier === 'tier2' || tier === 'tier3') && (
@@ -83,6 +87,8 @@ export default function App() {
               onComputing={() => { setComputing(true); setError(null); setDebugLog('Computing...'); }}
               onResult={handleResult}
               onError={handleError}
+              onCoordsChange={(lat, lon) => setLaunchCoords({ lat, lon })}
+              onWindBearingChange={(b) => setWindBearing(b)}
             />
           )}
         </div>
@@ -119,7 +125,7 @@ export default function App() {
         {/* Results — wrapped in error boundary so a render error shows the stack, not a blank screen */}
         {result && !computing && (
           <ErrorBoundary>
-            <Results result={result} />
+            <Results result={result} launchCoords={launchCoords} windBearing={windBearing} />
           </ErrorBoundary>
         )}
 

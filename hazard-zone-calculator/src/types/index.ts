@@ -80,6 +80,7 @@ export interface HazardZoneResult {
   // Tier 1 breakdown (descent-from-apogee mode only)
   tier1DescentRange_m?: number;
   tier1AscentOffset_m?: number;
+  tier1Table?: Array<{ altitude_ft: number; hazardRadius_ft: number; hazardRadius_m: number }>;
   // Stability (Tier 2/3 only)
   stabilityMargin_cal?: number;
   cdMultiplier?: number;
