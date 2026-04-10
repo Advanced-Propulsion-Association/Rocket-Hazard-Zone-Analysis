@@ -1,5 +1,5 @@
 /**
- * Drag coefficient model for hobby rockets.
+ * Drag coefficient model for amateur rockets.
  *
  * For a conservative hazard zone (max range), we use the MINIMUM plausible CD:
  * - Lower CD → less deceleration → higher apogee & longer ballistic range

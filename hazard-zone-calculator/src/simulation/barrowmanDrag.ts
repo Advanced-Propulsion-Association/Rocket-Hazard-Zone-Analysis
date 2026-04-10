@@ -1,5 +1,5 @@
 /**
- * Barrowman component drag buildup for hobby rockets.
+ * Barrowman component drag buildup for amateur rockets.
  *
  * Computes the subsonic base drag coefficient (referenced to max body cross-section)
  * from first-principles component contributions:

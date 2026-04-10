@@ -56,7 +56,7 @@ export default function App() {
         <div className="max-w-4xl mx-auto px-6 py-4">
           <div className="flex items-baseline gap-3">
             <h1 className="text-xl font-bold text-white tracking-tight">
-              Hobby Rocket Hazard Zone Calculator
+              Amateur Rocket Hazard Zone Calculator
             </h1>
             <span className="text-xs text-slate-400 font-mono">v1.0</span>
           </div>
@@ -125,7 +125,7 @@ export default function App() {
 
         <p className="text-xs text-slate-500 text-center pb-6">
           Hazard zone = worst-case ballistic impact radius assuming total recovery failure,
-          20&deg; max launch angle, 20 MPH max wind. Prepared in support of FAA AST hobby rocket hazard zone analysis.
+          20&deg; max launch angle, 20 MPH max wind. Prepared in support of FAA AST amateur rocket hazard zone analysis.
         </p>
       </main>
     </div>

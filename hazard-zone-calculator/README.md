@@ -1,6 +1,6 @@
 # Hazard Zone Calculator — Web App
 
-React 18 + TypeScript frontend for the FAA Hobby Rocket Hazard Zone Analysis tool. See the [root README](../README.md) for project overview and setup instructions.
+React 18 + TypeScript frontend for the FAA Amateur Rocket Hazard Zone Analysis tool. See the [root README](../README.md) for project overview and setup instructions.
 
 ## Quick Start
 
