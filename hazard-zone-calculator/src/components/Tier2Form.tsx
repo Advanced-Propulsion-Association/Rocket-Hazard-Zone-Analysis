@@ -5,6 +5,8 @@ import { lookupMotor } from '../motors/thrustcurve';
 import { parseOrkFile } from '../simulation/orkParser';
 import { barrowmanDragBreakdown } from '../simulation/barrowmanDrag';
 import type { BarrowmanDragBreakdown } from '../simulation/barrowmanDrag';
+import { parseOrFlightData } from '../simulation/orDataParser';
+import type { OrFlightDataResult } from '../simulation/orDataParser';
 import type { HazardZoneResult, InputTier, Motor, OpenRocketData } from '../types';
 
 interface Props {
@@ -91,6 +93,12 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
   const [orkStatus, setOrkStatus]   = useState('');
   const [orkParsing, setOrkParsing] = useState(false);
   const orkFileRef = useRef<HTMLInputElement>(null);
+
+  // OpenRocket flight data CSV import (Tier 3 only)
+  const [orFlightData, setOrFlightData]   = useState<OrFlightDataResult | null>(null);
+  const [orCsvStatus, setOrCsvStatus]     = useState('');
+  const [orCsvParsing, setOrCsvParsing]   = useState(false);
+  const orCsvRef = useRef<HTMLInputElement>(null);
 
   // ── GPS helpers ────────────────────────────────────────────────────────────
 
@@ -218,6 +226,38 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
       setOrkData(null);
     } finally {
       setOrkParsing(false);
+      e.target.value = '';
+    }
+  };
+
+  // ── OpenRocket flight data CSV upload (Tier 3) ────────────────────────────
+
+  const handleOrCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setOrCsvParsing(true);
+    setOrCsvStatus('Parsing flight data CSV...');
+    try {
+      const text = await file.text();
+      const data = parseOrFlightData(text);
+      setOrFlightData(data);
+      const parts = [
+        `CD = ${data.representativeCd.toFixed(3)} (median of ${data.numPoints} pre-apogee points)`,
+        `max Mach ${data.maxMach.toFixed(3)}`,
+        `apogee ${data.maxAltitude_ft.toFixed(0)} ft`,
+      ];
+      if (data.stabilityMargin_cal != null) {
+        parts.push(`stability ${data.stabilityMargin_cal.toFixed(2)} cal`);
+      }
+      setOrCsvStatus('Loaded: ' + parts.join(' · '));
+      // Auto-fill CG/CP if the form fields are empty
+      if (data.cgFromNose_in != null && !cgIn) setCgIn(data.cgFromNose_in.toFixed(2));
+      if (data.cpFromNose_in != null && !cpIn) setCpIn(data.cpFromNose_in.toFixed(2));
+    } catch (err) {
+      setOrFlightData(null);
+      setOrCsvStatus('Failed: ' + String(err));
+    } finally {
+      setOrCsvParsing(false);
       e.target.value = '';
     }
   };
@@ -354,26 +394,42 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
     const bq = parseFloat(buildQuality) || 1.0;
     const nf = parseInt(numFins) || 3;
 
-    // Tier 3: compute CD from Barrowman component drag buildup
+    // Tier 3: CD from OR flight data CSV if available, otherwise Barrowman buildup
     let cdOverride: number | undefined;
     let barrowmanBreakdown: HazardZoneResult['barrowmanBreakdown'] | undefined;
     if (isTier3) {
-      const nl = parseFloat(noseLength) || 0;
-      const fr = parseFloat(finRoot) || 0;
-      const ft = parseFloat(finTip) || 0;
-      const fs = parseFloat(finSpan) || 0;
-      const bd = barrowmanDragBreakdown({
-        noseConeType:    noseType,
-        noseLength_in:   nl,
-        bodyDiameter_in: d_in,
-        bodyLength_in:   l_in,
-        finRootChord_in: fr,
-        finTipChord_in:  ft,
-        finSpan_in:      fs,
-        numFins:         nf,
-      });
-      cdOverride = bd.CD_total;
-      barrowmanBreakdown = bd;
+      if (orFlightData) {
+        // Use OpenRocket-validated CD (pre-apogee median) — most accurate source
+        cdOverride = orFlightData.representativeCd;
+        // Still populate barrowmanBreakdown for display if components are available
+        if (orFlightData.cdFriction != null && orFlightData.cdPressure != null && orFlightData.cdBase != null) {
+          barrowmanBreakdown = {
+            CD_friction:      orFlightData.cdFriction,
+            CD_base:          orFlightData.cdBase,
+            CD_fins:          0, // OR doesn't separate fin drag in the export
+            CD_nose_pressure: orFlightData.cdPressure,
+            CD_total:         orFlightData.representativeCd,
+          };
+        }
+      } else {
+        // Fallback: Barrowman component drag buildup from geometry
+        const nl = parseFloat(noseLength) || 0;
+        const fr = parseFloat(finRoot) || 0;
+        const ft = parseFloat(finTip) || 0;
+        const fs = parseFloat(finSpan) || 0;
+        const bd = barrowmanDragBreakdown({
+          noseConeType:    noseType,
+          noseLength_in:   nl,
+          bodyDiameter_in: d_in,
+          bodyLength_in:   l_in,
+          finRootChord_in: fr,
+          finTipChord_in:  ft,
+          finSpan_in:      fs,
+          numFins:         nf,
+        });
+        cdOverride = bd.CD_total;
+        barrowmanBreakdown = bd;
+      }
     }
 
     onComputing();
@@ -568,8 +624,78 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
               </Field>
             </div>
 
+            {/* OpenRocket flight data CSV — optional CD source */}
+            <div className="mt-4 rounded-lg bg-slate-700/40 border border-slate-600 p-4 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <p className="text-xs font-medium text-slate-300 uppercase tracking-widest">
+                    OpenRocket Flight Data CSV — Optional
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Import an OR simulation export to use OR&apos;s validated CD instead of Barrowman.
+                  </p>
+                </div>
+                <div className="flex gap-2 items-center">
+                  <button type="button" onClick={() => orCsvRef.current?.click()} disabled={orCsvParsing}
+                    className="text-xs px-3 py-1.5 rounded bg-slate-600 hover:bg-slate-500 disabled:opacity-50 text-white transition-colors shrink-0">
+                    {orCsvParsing ? 'Parsing...' : 'Choose CSV'}
+                  </button>
+                  {orFlightData && (
+                    <button type="button" onClick={() => { setOrFlightData(null); setOrCsvStatus(''); }}
+                      className="text-xs px-2 py-1 rounded border border-slate-600 hover:border-slate-400 text-slate-400 hover:text-white transition-colors">
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <input ref={orCsvRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleOrCsvUpload} />
+              </div>
+              {orCsvStatus && (
+                <p className={`text-xs ${orCsvStatus.startsWith('Failed') ? 'text-red-400' : orFlightData ? 'text-green-400' : 'text-slate-400'}`}>
+                  {orCsvStatus}
+                </p>
+              )}
+              {orFlightData && (
+                <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-xs pt-1 border-t border-slate-600/60">
+                  <span className="text-slate-400">CD source</span>
+                  <span className="text-blue-300 font-medium">OpenRocket simulation</span>
+                  <span className="text-slate-400">Drag coefficient</span>
+                  <span className="text-slate-200">{orFlightData.representativeCd.toFixed(3)}</span>
+                  {orFlightData.cdFriction != null && <>
+                    <span className="text-slate-400">  Friction</span>
+                    <span className="text-slate-400">{orFlightData.cdFriction.toFixed(3)}</span>
+                  </>}
+                  {orFlightData.cdPressure != null && <>
+                    <span className="text-slate-400">  Pressure</span>
+                    <span className="text-slate-400">{orFlightData.cdPressure.toFixed(3)}</span>
+                  </>}
+                  {orFlightData.cdBase != null && <>
+                    <span className="text-slate-400">  Base</span>
+                    <span className="text-slate-400">{orFlightData.cdBase.toFixed(3)}</span>
+                  </>}
+                  <span className="text-slate-400">Max Mach</span>
+                  <span className="text-slate-200">{orFlightData.maxMach.toFixed(3)}</span>
+                  <span className="text-slate-400">OR apogee</span>
+                  <span className="text-slate-200">{orFlightData.maxAltitude_ft.toFixed(0)} ft</span>
+                  <span className="text-slate-400">Data points used</span>
+                  <span className="text-slate-200">{orFlightData.numPoints}</span>
+                  {orFlightData.stabilityMargin_cal != null && <>
+                    <span className="text-slate-400">Stability margin</span>
+                    <span className="text-slate-200">{orFlightData.stabilityMargin_cal.toFixed(2)} cal</span>
+                  </>}
+                </div>
+              )}
+              {orFlightData?.warnings.map((w, i) => (
+                <p key={i} className="text-xs text-amber-400">[!] {w}</p>
+              ))}
+              {!orFlightData && (
+                <p className="text-xs text-slate-500">
+                  If not provided, CD is calculated from your geometry using Barrowman component drag buildup.
+                </p>
+              )}
+            </div>
+
             {/* Live Barrowman CD breakdown */}
-            {liveBarrowman && (
+            {liveBarrowman && !orFlightData && (
               <div className="mt-4 rounded-lg bg-slate-700/40 border border-slate-600 p-3">
                 <p className="text-xs font-medium text-slate-300 uppercase tracking-widest mb-2">
                   Live Barrowman CD Breakdown
