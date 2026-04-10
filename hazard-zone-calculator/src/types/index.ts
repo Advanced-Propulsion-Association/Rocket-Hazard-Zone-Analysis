@@ -88,6 +88,14 @@ export interface HazardZoneResult {
   // OpenRocket comparison
   orkApogee_m?: number;
   orkMotorDesignation?: string;
+  // Tier 3 Barrowman drag breakdown
+  barrowmanBreakdown?: {
+    CD_friction: number;
+    CD_base: number;
+    CD_fins: number;
+    CD_nose_pressure: number;
+    CD_total: number;
+  };
 }
 
 // ─── OpenRocket Data ─────────────────────────────────────────────────────────
@@ -102,10 +110,18 @@ export interface OpenRocketData {
   finTipChord_in: number;
   finSpan_in: number;
   finSweep_in?: number;
+  numFins?: number;
+  cgFromNose_in?: number;
   motorDesignation?: string;
   motorManufacturer?: string;
   maxApogee_m?: number;
   maxVelocity_ms?: number;
+  maxAcceleration_ms2?: number;
+  maxMach?: number;
+  timeToApogee_s?: number;
+  flightTime_s?: number;
+  groundHitVelocity_ms?: number;
+  launchRodVelocity_ms?: number;
 }
 
 // ─── Motor Lookup (ThrustCurve.org) ─────────────────────────────────────────

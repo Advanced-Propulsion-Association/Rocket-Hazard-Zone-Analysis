@@ -29,6 +29,7 @@ async function lookupElevation(lat: number, lon: number): Promise<number | null>
 export function Tier1Form({ onComputing, onResult, onError }: Props) {
   const [apogee, setApogee] = useState('');
   const [siteElev, setSiteElev] = useState('0');
+  const [buildQuality, setBuildQuality] = useState('1.0');
   const [showAssumptions, setShowAssumptions] = useState(false);
 
   // GPS state
@@ -93,7 +94,7 @@ export function Tier1Form({ onComputing, onResult, onError }: Props) {
     onComputing();
     setTimeout(() => {
       try {
-        const result = computeTier1HazardZone(apogee_ft, elev_ft);
+        const result = computeTier1HazardZone(apogee_ft, elev_ft, parseFloat(buildQuality));
         onResult(result);
       } catch (err) {
         onError('Simulation error: ' + String(err));
@@ -112,7 +113,7 @@ export function Tier1Form({ onComputing, onResult, onError }: Props) {
       </div>
 
       {/* Main inputs */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4 mb-4">
         <label className="block">
           <span className="text-sm text-slate-300 font-medium">Max expected apogee (ft AGL)</span>
           <input
@@ -142,6 +143,24 @@ export function Tier1Form({ onComputing, onResult, onError }: Props) {
           />
         </label>
       </div>
+
+      {/* Build quality */}
+      <label className="block">
+        <span className="text-sm text-slate-300 font-medium">Build quality</span>
+        <select
+          value={buildQuality}
+          onChange={e => setBuildQuality(e.target.value)}
+          className="mt-1 w-full input-field"
+        >
+          <option value="1.0">Ideal — 1.0× (theoretical minimum drag)</option>
+          <option value="1.15">Competition — 1.15× (very smooth finish, minimal hardware)</option>
+          <option value="1.30">Standard build — 1.30× (typical kit rocket, rail buttons, seams)</option>
+          <option value="1.50">Rough build — 1.50× (significant protuberances, rough finish)</option>
+        </select>
+        <p className="text-xs text-slate-500 mt-1">
+          Multiplied into the base CD (0.60). As-built rockets typically have 15–30% more drag than ideal models.
+        </p>
+      </label>
 
       {/* Conservative assumptions disclosure */}
       <div className="rounded-lg bg-slate-700/40 border border-slate-600 overflow-hidden">

@@ -70,7 +70,7 @@ export function simulate(config: SimConfig, dtMax = 0.05): TrajectoryPoint[] {
     const absZ = Math.max(z_ + siteElev, 0);
     const T = thrustAt(motor, t_);
     const P = isaPressure(absZ);
-    const Tcorr = motor.nozzleExitAreaM2
+    const Tcorr = (motor.nozzleExitAreaM2 && T > 0)
       ? T + (101325 - P) * motor.nozzleExitAreaM2
       : T;
 
@@ -162,6 +162,7 @@ export interface HazardZoneInput {
   totalMass_lb: number;
   motor: Motor;
   cdOverride?: number;
+  buildQuality?: number;    // multiplier on base CD (1.0 = ideal, 1.3 = typical build)
   cg_in?: number;
   cp_in?: number;
   siteElevation_ft: number;
@@ -185,12 +186,14 @@ export function computeHazardZone(input: HazardZoneInput): HazardZoneResult {
   if (I_total > 10240) warnings.push('Motor class M or above — additional FAA notification required.');
   if (input.surfaceWind_mph > 20) warnings.push('Wind exceeds NAR/Tripoli 20 MPH launch limit.');
 
-  // Stability correction: low-stability rockets tumble during descent → higher effective CD
+  // Build quality + stability correction pipeline
+  // Order: base CD → × buildQuality → × stability multiplier (if unstable)
   const stabResult = stabilityCorrection(input.cg_in, input.cp_in, input.bodyDiameter_in);
-  let effectiveCdOverride = input.cdOverride;
+  const FR = length_m / diameter_m;
+  const baseCdGeometry = (input.cdOverride ?? cdFromFineness(FR)) * (input.buildQuality ?? 1.0);
+  let effectiveCdOverride: number = baseCdGeometry;
   if (stabResult && stabResult.multiplier !== 1.0) {
-    const baseCd = input.cdOverride ?? cdFromFineness(length_m / diameter_m);
-    effectiveCdOverride = baseCd * stabResult.multiplier;
+    effectiveCdOverride = baseCdGeometry * stabResult.multiplier;
     if (stabResult.category === 'marginal') {
       warnings.push(`Marginal stability (${stabResult.margin_cal.toFixed(2)} cal) — CD increased ×1.5 to model tumbling descent.`);
     } else {
@@ -244,8 +247,6 @@ export function computeHazardZone(input: HazardZoneInput): HazardZoneResult {
   const maxApogee_m = Math.max(...vertPts.map(p => p.z));
   const quarterRule_m = maxApogee_m / 4;
 
-  const baseCdForResult = input.cdOverride ?? cdFromFineness(length_m / diameter_m);
-
   return {
     hazardRadius_m:           maxRange_m,
     hazardRadius_ft:          maxRange_m * M_TO_FT,
@@ -260,7 +261,7 @@ export function computeHazardZone(input: HazardZoneInput): HazardZoneResult {
     warnings,
     stabilityMargin_cal:  stabResult?.margin_cal,
     cdMultiplier:         stabResult?.multiplier,
-    cdEffective:          stabResult ? baseCdForResult * stabResult.multiplier : undefined,
+    cdEffective:          effectiveCdOverride,
     stabilityCategory:    stabResult?.category,
   };
 }
@@ -280,6 +281,7 @@ export function computeHazardZone(input: HazardZoneInput): HazardZoneResult {
 export function computeTier1HazardZone(
   apogee_ft: number,
   siteElev_ft: number,
+  buildQuality = 1.0,
 ): HazardZoneResult {
   const apogee_m    = apogee_ft   * (1 / M_TO_FT);
   const siteElev_m  = siteElev_ft * (1 / M_TO_FT);
@@ -307,7 +309,7 @@ export function computeTier1HazardZone(
     bodyLength_m:   length_m,
     totalMass_kg:   mass_kg,
     motor:          descentMotor,
-    cdOverride:     0.60,
+    cdOverride:     0.60 * buildQuality,
     launchAngle_deg: 0,
     siteElevation_m: siteElev_m,
     siteTemp_K,
@@ -359,5 +361,6 @@ export function computeTier1HazardZone(
     warnings,
     tier1DescentRange_m:     descentRange_m,
     tier1AscentOffset_m:     maxAscentOffset_m,
+    cdEffective:             0.60 * buildQuality,
   };
 }

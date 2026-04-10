@@ -171,8 +171,10 @@ export function Results({ result }: Props) {
               <p className="text-sm font-medium text-slate-200">Static Stability Margin</p>
               <p className="text-xs text-slate-400 mt-0.5">
                 {r.stabilityMargin_cal.toFixed(2)} calibers
-                {r.cdMultiplier != null && r.cdMultiplier !== 1.0 && r.cdEffective != null && (
-                  <> &middot; CD corrected &times;{r.cdMultiplier.toFixed(1)} &rarr; effective CD&nbsp;=&nbsp;{r.cdEffective.toFixed(3)}</>
+                {r.cdEffective != null && (
+                  r.cdMultiplier != null && r.cdMultiplier !== 1.0
+                    ? <> &middot; CD corrected &times;{r.cdMultiplier.toFixed(1)} &rarr; effective CD&nbsp;=&nbsp;{r.cdEffective.toFixed(3)}</>
+                    : <> &middot; effective CD&nbsp;=&nbsp;{r.cdEffective.toFixed(3)}</>
                 )}
               </p>
             </div>
@@ -196,6 +198,31 @@ export function Results({ result }: Props) {
               nose-forward model is more conservative — consider using both.
             </p>
           )}
+        </div>
+      )}
+
+      {/* Barrowman CD breakdown (Tier 3 only) */}
+      {r.barrowmanBreakdown && (
+        <div className="rounded-xl border border-slate-700 bg-slate-800/40 px-5 py-4">
+          <p className="text-sm font-medium text-slate-200 mb-3">Barrowman CD Breakdown</p>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-1.5 text-sm">
+            <span className="text-slate-400">Skin friction (nose + body)</span>
+            <span className="text-white tabular-nums">{r.barrowmanBreakdown.CD_friction.toFixed(4)}</span>
+            <span className="text-slate-400">Base drag</span>
+            <span className="text-white tabular-nums">{r.barrowmanBreakdown.CD_base.toFixed(4)}</span>
+            <span className="text-slate-400">Fin drag</span>
+            <span className="text-white tabular-nums">{r.barrowmanBreakdown.CD_fins.toFixed(4)}</span>
+            <span className="text-slate-400">Nose pressure drag</span>
+            <span className="text-white tabular-nums">{r.barrowmanBreakdown.CD_nose_pressure.toFixed(4)}</span>
+            <span className="text-slate-300 font-medium border-t border-slate-700 pt-2">Total Barrowman CD</span>
+            <span className="text-blue-300 font-bold tabular-nums border-t border-slate-700 pt-2">
+              {r.barrowmanBreakdown.CD_total.toFixed(4)}
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-3">
+            Build quality and stability correction applied on top.
+            Final simulation CD = {r.cdEffective?.toFixed(4) ?? '—'}.
+          </p>
         </div>
       )}
 

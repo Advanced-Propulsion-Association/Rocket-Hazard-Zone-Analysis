@@ -3,6 +3,8 @@ import { computeHazardZone } from '../simulation/trajectory';
 import { parseRaspEng, makeBoxcarMotor } from '../simulation/motor';
 import { lookupMotor } from '../motors/thrustcurve';
 import { parseOrkFile } from '../simulation/orkParser';
+import { barrowmanDragBreakdown } from '../simulation/barrowmanDrag';
+import type { BarrowmanDragBreakdown } from '../simulation/barrowmanDrag';
 import type { HazardZoneResult, InputTier, Motor, OpenRocketData } from '../types';
 
 interface Props {
@@ -46,6 +48,10 @@ export function Tier2Form({ tier, onComputing, onResult, onError }: Props) {
   const [finSpan, setFinSpan]     = useState('');    // inches
   const [nozzleDia, setNozzleDia] = useState('');    // inches
   const [numStages, setNumStages] = useState('1');
+  const [numFins, setNumFins]     = useState('3');
+
+  // Build quality
+  const [buildQuality, setBuildQuality] = useState('1.0');
 
   // Stability (CG/CP)
   const [cgIn, setCgIn] = useState('');
@@ -165,9 +171,11 @@ export function Tier2Form({ tier, onComputing, onResult, onError }: Props) {
         if (data.finRootChord_in > 0) setFinRoot(data.finRootChord_in.toFixed(2));
         if (data.finTipChord_in > 0)  setFinTip(data.finTipChord_in.toFixed(2));
         if (data.finSpan_in > 0)      setFinSpan(data.finSpan_in.toFixed(2));
-        if (data.finSweep_in != null && data.finSweep_in > 0) {
-          // sweep not a direct input field but stored in orkData for reference
-        }
+        if (data.numFins != null && data.numFins > 0) setNumFins(String(data.numFins));
+      }
+      // CG from nose — extracted from OR simulation data when available
+      if (data.cgFromNose_in != null && data.cgFromNose_in > 0) {
+        setCgIn(data.cgFromNose_in.toFixed(2));
       }
 
       // Auto-lookup motor if designation is available
@@ -214,7 +222,8 @@ export function Tier2Form({ tier, onComputing, onResult, onError }: Props) {
     const config = {
       tier,
       diameter, length, mass,
-      noseType, noseLength, finRoot, finTip, finSpan, nozzleDia, numStages,
+      noseType, noseLength, finRoot, finTip, finSpan, nozzleDia, numStages, numFins,
+      buildQuality,
       cgIn, cpIn,
       siteElev, siteTemp, wind,
       motorMode,
@@ -251,8 +260,10 @@ export function Tier2Form({ tier, onComputing, onResult, onError }: Props) {
         if (cfg.finRoot)    setFinRoot(cfg.finRoot);
         if (cfg.finTip)     setFinTip(cfg.finTip);
         if (cfg.finSpan)    setFinSpan(cfg.finSpan);
-        if (cfg.nozzleDia)  setNozzleDia(cfg.nozzleDia);
-        if (cfg.numStages)  setNumStages(cfg.numStages);
+        if (cfg.nozzleDia)    setNozzleDia(cfg.nozzleDia);
+        if (cfg.numStages)    setNumStages(cfg.numStages);
+        if (cfg.numFins)      setNumFins(cfg.numFins);
+        if (cfg.buildQuality) setBuildQuality(cfg.buildQuality);
         if (cfg.cgIn != null) setCgIn(cfg.cgIn);
         if (cfg.cpIn != null) setCpIn(cfg.cpIn);
         if (cfg.siteElev) setSiteElev(cfg.siteElev);
@@ -334,6 +345,31 @@ export function Tier2Form({ tier, onComputing, onResult, onError }: Props) {
     const cg = cgIn ? parseFloat(cgIn) : undefined;
     const cp = cpIn ? parseFloat(cpIn) : undefined;
 
+    const bq = parseFloat(buildQuality) || 1.0;
+    const nf = parseInt(numFins) || 3;
+
+    // Tier 3: compute CD from Barrowman component drag buildup
+    let cdOverride: number | undefined;
+    let barrowmanBreakdown: HazardZoneResult['barrowmanBreakdown'] | undefined;
+    if (isTier3) {
+      const nl = parseFloat(noseLength) || 0;
+      const fr = parseFloat(finRoot) || 0;
+      const ft = parseFloat(finTip) || 0;
+      const fs = parseFloat(finSpan) || 0;
+      const bd = barrowmanDragBreakdown({
+        noseConeType:    noseType,
+        noseLength_in:   nl,
+        bodyDiameter_in: d_in,
+        bodyLength_in:   l_in,
+        finRootChord_in: fr,
+        finTipChord_in:  ft,
+        finSpan_in:      fs,
+        numFins:         nf,
+      });
+      cdOverride = bd.CD_total;
+      barrowmanBreakdown = bd;
+    }
+
     onComputing();
     setTimeout(() => {
       try {
@@ -347,19 +383,45 @@ export function Tier2Form({ tier, onComputing, onResult, onError }: Props) {
           siteElevation_ft:  elev,
           siteTemp_F:        temp,
           surfaceWind_mph:   w_mph,
+          buildQuality:      bq,
+          cdOverride,
           storeTrajectories: true,
         });
-        // Attach OpenRocket comparison data if available
+        // Attach OpenRocket comparison data and Barrowman breakdown if available
         onResult({
           ...result,
           orkApogee_m:          orkData?.maxApogee_m,
           orkMotorDesignation:  orkData?.motorDesignation,
+          barrowmanBreakdown,
         });
       } catch (err) {
         onError('Simulation error: ' + String(err));
       }
     }, 10);
   };
+
+  // Live Barrowman breakdown for Tier 3 preview panel
+  const liveBarrowman: BarrowmanDragBreakdown | null = (() => {
+    if (!isTier3) return null;
+    const d = parseFloat(diameter);
+    const l = parseFloat(length);
+    if (!d || !l || d <= 0 || l <= 0) return null;
+    const nl = parseFloat(noseLength) || 0;
+    const fr = parseFloat(finRoot) || 0;
+    const ft = parseFloat(finTip) || 0;
+    const fs = parseFloat(finSpan) || 0;
+    const nf = parseInt(numFins) || 3;
+    return barrowmanDragBreakdown({
+      noseConeType:    noseType,
+      noseLength_in:   nl,
+      bodyDiameter_in: d,
+      bodyLength_in:   l,
+      finRootChord_in: fr,
+      finTipChord_in:  ft,
+      finSpan_in:      fs,
+      numFins:         nf,
+    });
+  })();
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -403,23 +465,40 @@ export function Tier2Form({ tier, onComputing, onResult, onError }: Props) {
       <Section title="Rocket Geometry">
         <div className="grid grid-cols-3 gap-4">
           <Field label="Body diameter (in)">
-            <input type="number" min="0.1" max="24" step="0.01"
+            <input type="number" min="0.1" max="24" step="any"
               value={diameter} onChange={e => setDiameter(e.target.value)}
               placeholder="e.g. 2.56" required className="input-field" />
             <Help>Outer tube diameter. Sets the reference drag area and stability caliber denominator.</Help>
           </Field>
           <Field label="Total length (in)">
-            <input type="number" min="1" max="600" step="0.5"
+            <input type="number" min="1" max="600" step="any"
               value={length} onChange={e => setLength(e.target.value)}
               placeholder="e.g. 48" required className="input-field" />
             <Help>Nose tip to nozzle exit. Used with diameter to compute fineness ratio (L/D) for drag estimate.</Help>
           </Field>
           <Field label="Loaded weight (lbs)">
-            <input type="number" min="0.01" max="500" step="0.01"
+            <input type="number" min="0.01" max="500" step="any"
               value={mass} onChange={e => setMass(e.target.value)}
               placeholder="e.g. 4.5" required className="input-field" />
             <Help>Full ready-to-fly mass including motor, propellant, and recovery hardware. Heavier rocket = slower = shorter range.</Help>
           </Field>
+        </div>
+
+        {/* Build quality multiplier */}
+        <div className="mt-4">
+          <Field label="Build quality">
+            <select value={buildQuality} onChange={e => setBuildQuality(e.target.value)} className="input-field">
+              <option value="1.0">Ideal — 1.0× (theoretical minimum drag)</option>
+              <option value="1.15">Competition — 1.15× (very smooth finish, minimal hardware)</option>
+              <option value="1.30">Standard build — 1.30× (typical kit rocket, rail buttons, seams)</option>
+              <option value="1.50">Rough build — 1.50× (significant protuberances, rough finish)</option>
+            </select>
+          </Field>
+          <p className="text-xs text-slate-500 mt-1">
+            {isTier3
+              ? 'Multiplied into the Barrowman base CD after component drag buildup.'
+              : 'Multiplied into the fineness-ratio CD estimate. As-built rockets typically have 15–30% more drag than ideal models.'}
+          </p>
         </div>
 
         {/* Tier 3 extra geometry */}
@@ -438,33 +517,39 @@ export function Tier2Form({ tier, onComputing, onResult, onError }: Props) {
                 <Help>Affects wave drag at transonic speeds. Tangent ogive is most common and has low drag.</Help>
               </Field>
               <Field label="Nose cone length (in)">
-                <input type="number" min="0.5" max="60" step="0.1"
+                <input type="number" min="0.5" max="60" step="any"
                   value={noseLength} onChange={e => setNoseLength(e.target.value)}
                   placeholder="e.g. 12" className="input-field" />
                 <Help>Longer nose reduces wave drag at high speed. Also used in Barrowman CP estimation.</Help>
               </Field>
             </div>
             <div className="grid grid-cols-3 gap-4 mt-4">
+              <Field label="Number of fins">
+                <input type="number" min="1" max="8" step="1"
+                  value={numFins} onChange={e => setNumFins(e.target.value)}
+                  placeholder="3" className="input-field" />
+                <Help>Number of fins on the rocket. Used in Barrowman drag buildup to compute fin wetted area and interference drag.</Help>
+              </Field>
               <Field label="Fin root chord (in)">
-                <input type="number" min="0.1" max="36" step="0.1"
+                <input type="number" min="0.1" max="36" step="any"
                   value={finRoot} onChange={e => setFinRoot(e.target.value)}
                   placeholder="e.g. 6" className="input-field" />
                 <Help>Length of the fin edge attached to the body tube. Larger fins push the center of pressure (CP) aft.</Help>
               </Field>
               <Field label="Fin tip chord (in)">
-                <input type="number" min="0" max="24" step="0.1"
+                <input type="number" min="0" max="24" step="any"
                   value={finTip} onChange={e => setFinTip(e.target.value)}
                   placeholder="e.g. 3" className="input-field" />
                 <Help>Length of the fin&apos;s free outer edge. Enter 0 for triangular fins. Affects CP location and fin drag.</Help>
               </Field>
               <Field label="Fin span (in)">
-                <input type="number" min="0.1" max="36" step="0.1"
+                <input type="number" min="0.1" max="36" step="any"
                   value={finSpan} onChange={e => setFinSpan(e.target.value)}
                   placeholder="e.g. 5" className="input-field" />
                 <Help>Distance from the body tube to the fin tip. Larger span moves CP further aft for better stability.</Help>
               </Field>
               <Field label="Nozzle exit diameter (in)">
-                <input type="number" min="0.1" max="12" step="0.01"
+                <input type="number" min="0.1" max="12" step="any"
                   value={nozzleDia} onChange={e => setNozzleDia(e.target.value)}
                   placeholder="e.g. 1.5" className="input-field" />
                 <Help>Enables altitude-corrected thrust. At high altitude, lower ambient pressure increases effective thrust.</Help>
@@ -476,6 +561,30 @@ export function Tier2Form({ tier, onComputing, onResult, onError }: Props) {
                 <Help>Single-stage only supported. For multi-stage, simulate each stage separately and use the largest hazard zone.</Help>
               </Field>
             </div>
+
+            {/* Live Barrowman CD breakdown */}
+            {liveBarrowman && (
+              <div className="mt-4 rounded-lg bg-slate-700/40 border border-slate-600 p-3">
+                <p className="text-xs font-medium text-slate-300 uppercase tracking-widest mb-2">
+                  Live Barrowman CD Breakdown
+                </p>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-xs">
+                  <span className="text-slate-400">Body skin friction</span>
+                  <span className="text-slate-200">{liveBarrowman.CD_friction.toFixed(3)}</span>
+                  <span className="text-slate-400">Base (nozzle wake)</span>
+                  <span className="text-slate-200">{liveBarrowman.CD_base.toFixed(3)}</span>
+                  <span className="text-slate-400">Fin drag</span>
+                  <span className="text-slate-200">{liveBarrowman.CD_fins.toFixed(3)}</span>
+                  <span className="text-slate-400">Nose pressure</span>
+                  <span className="text-slate-200">{liveBarrowman.CD_nose_pressure.toFixed(3)}</span>
+                  <span className="text-slate-300 font-medium pt-1">Base CD total</span>
+                  <span className="text-slate-100 font-medium pt-1">{liveBarrowman.CD_total.toFixed(3)}</span>
+                  <span className="text-slate-300 font-medium">Effective CD (×{buildQuality})</span>
+                  <span className="text-blue-300 font-medium">{(liveBarrowman.CD_total * (parseFloat(buildQuality) || 1)).toFixed(3)}</span>
+                </div>
+                <p className="text-xs text-slate-500 mt-2">Updates live as you change geometry. Build quality multiplier applied at simulation time.</p>
+              </div>
+            )}
           </>
         )}
 
@@ -486,13 +595,13 @@ export function Tier2Form({ tier, onComputing, onResult, onError }: Props) {
           </p>
           <div className="grid grid-cols-2 gap-4">
             <Field label="CG from nose tip (in)">
-              <input type="number" min="0" max="600" step="0.1"
+              <input type="number" min="0" max="600" step="any"
                 value={cgIn} onChange={e => setCgIn(e.target.value)}
                 placeholder="e.g. 18.0" className="input-field" />
               <Help>Center of gravity measured from the nose tip. Found via swing test or simulation (e.g. OpenRocket).</Help>
             </Field>
             <Field label="CP from nose tip (in)">
-              <input type="number" min="0" max="600" step="0.1"
+              <input type="number" min="0" max="600" step="any"
                 value={cpIn} onChange={e => setCpIn(e.target.value)}
                 placeholder="e.g. 22.5" className="input-field" />
               <Help>Center of pressure from nose tip (Barrowman method). CP must be aft of CG for stable flight. If CP &lt; CG (unstable), a higher drag coefficient is applied to model tumbling descent.</Help>
@@ -626,25 +735,25 @@ export function Tier2Form({ tier, onComputing, onResult, onError }: Props) {
             </p>
             <div className="grid grid-cols-2 gap-4">
               <Field label="Average thrust (N)">
-                <input type="number" min="0.1" step="0.1"
+                <input type="number" min="0.1" step="any"
                   value={avgThrust} onChange={e => setAvgThrust(e.target.value)}
                   placeholder="e.g. 500" className="input-field" />
                 <Help>Average thrust over the burn. With burn time, determines total impulse and motor class.</Help>
               </Field>
               <Field label="Burn time (sec)">
-                <input type="number" min="0.01" step="0.01"
+                <input type="number" min="0.01" step="any"
                   value={burnTimeS} onChange={e => setBurnTimeS(e.target.value)}
                   placeholder="e.g. 2.5" className="input-field" />
                 <Help>Motor burn duration in seconds. Longer burn = more total impulse = higher and faster flight.</Help>
               </Field>
               <Field label="Propellant mass (lbs)">
-                <input type="number" min="0.001" step="0.001"
+                <input type="number" min="0.001" step="any"
                   value={propMass} onChange={e => setPropMass(e.target.value)}
                   placeholder="e.g. 0.50" className="input-field" />
                 <Help>Propellant mass only (not the motor casing). Rocket gets lighter as it burns, increasing acceleration.</Help>
               </Field>
               <Field label="Total motor mass (lbs)">
-                <input type="number" min="0.001" step="0.001"
+                <input type="number" min="0.001" step="any"
                   value={motorMass} onChange={e => setMotorMass(e.target.value)}
                   placeholder="e.g. 1.20" className="input-field" />
                 <Help>Full motor weight including casing, propellant, and nozzle. Subtracted to get dry mass at burnout.</Help>
