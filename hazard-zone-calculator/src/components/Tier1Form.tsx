@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { computeTier1HazardZone } from '../simulation/trajectory';
-import { CD_PROFILES } from '../simulation/aerodynamics';
 import type { HazardZoneResult } from '../types';
 
 interface Props {
@@ -32,7 +31,6 @@ async function lookupElevation(lat: number, lon: number): Promise<number | null>
 export function Tier1Form({ onComputing, onResult, onError, onCoordsChange, onWindBearingChange }: Props) {
   const [apogee, setApogee] = useState('');
   const [siteElev, setSiteElev] = useState('0');
-  const [cdProfile, setCdProfile] = useState<number>(0.50);
   const [showAssumptions, setShowAssumptions] = useState(false);
 
   // GPS state
@@ -100,13 +98,13 @@ export function Tier1Form({ onComputing, onResult, onError, onCoordsChange, onWi
     onComputing();
     setTimeout(() => {
       try {
-        const result = computeTier1HazardZone(apogee_ft, elev_ft, cdProfile);
+        const result = computeTier1HazardZone(apogee_ft, elev_ft);
 
         // Build altitude table at 500 ft steps (1000 ft steps above 10,000 ft)
         const step = apogee_ft >= 10000 ? 1000 : 500;
         const tier1Table: Array<{ altitude_ft: number; hazardRadius_ft: number; hazardRadius_m: number }> = [];
         for (let alt = step; alt <= apogee_ft; alt += step) {
-          const r = computeTier1HazardZone(alt, elev_ft, cdProfile);
+          const r = computeTier1HazardZone(alt, elev_ft);
           tier1Table.push({ altitude_ft: alt, hazardRadius_ft: r.hazardRadius_ft, hazardRadius_m: r.hazardRadius_m });
         }
 
@@ -159,22 +157,11 @@ export function Tier1Form({ onComputing, onResult, onError, onCoordsChange, onWi
         </label>
       </div>
 
-      {/* CD profile */}
-      <label className="block">
-        <span className="text-sm text-slate-300 font-medium">Aerodynamic profile</span>
-        <select
-          value={cdProfile}
-          onChange={e => setCdProfile(parseFloat(e.target.value))}
-          className="mt-1 w-full input-field"
-        >
-          {CD_PROFILES.map(p => (
-            <option key={p.value} value={p.value}>{p.label} (CD = {p.value})</option>
-          ))}
-        </select>
-        <p className="text-xs text-slate-500 mt-1">
-          Lower CD → longer range → larger (more conservative) FAA hazard zone.
-        </p>
-      </label>
+      {/* Tier 1 governing rule note */}
+      <div className="rounded-lg bg-slate-700/30 border border-slate-600 px-4 py-2.5 text-xs text-slate-400">
+        Hazard zone = <span className="text-slate-200">max(ballistic physics, apogee ÷ 4)</span>.
+        For typical hobby rockets the ¼-altitude rule governs — use <span className="text-slate-200">Tier 2 or Tier 3</span> to model your actual rocket geometry and CD.
+      </div>
 
       {/* Conservative assumptions disclosure */}
       <div className="rounded-lg bg-slate-700/40 border border-slate-600 overflow-hidden">
@@ -200,7 +187,7 @@ export function Tier1Form({ onComputing, onResult, onError, onCoordsChange, onWi
               <span className="text-slate-400">Body length</span>
               <span className="text-slate-200">50 in (1,270 mm)</span>
               <span className="text-slate-400">Descent drag coefficient (CD)</span>
-              <span className="text-slate-200">{cdProfile} — from selected aerodynamic profile</span>
+              <span className="text-slate-200">0.50 (standard hobby build)</span>
               <span className="text-slate-400">Max launch tilt</span>
               <span className="text-slate-200">20° from vertical (NAR/Tripoli limit)</span>
               <span className="text-slate-400">Surface wind</span>

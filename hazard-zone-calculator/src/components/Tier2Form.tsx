@@ -585,18 +585,29 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
         {/* Build quality multiplier */}
         <div className="mt-4">
           <Field label="Build quality">
-            <select value={buildQuality} onChange={e => setBuildQuality(e.target.value)} className="input-field">
+            <select value={buildQuality} onChange={e => setBuildQuality(e.target.value)}
+              className={`input-field ${manualCdOverride ? 'opacity-40' : ''}`}
+              disabled={!!manualCdOverride}>
               <option value="1.0">Ideal — 1.0× (theoretical minimum drag)</option>
               <option value="1.15">Competition — 1.15× (very smooth finish, minimal hardware)</option>
               <option value="1.30">Standard build — 1.30× (typical kit rocket, rail buttons, seams)</option>
               <option value="1.50">Rough build — 1.50× (significant protuberances, rough finish)</option>
             </select>
           </Field>
-          <p className="text-xs text-slate-500 mt-1">
-            {isTier3
-              ? 'Multiplied into the Barrowman base CD after component drag buildup.'
-              : 'Multiplied into the fineness-ratio CD estimate. As-built rockets typically have 15–30% more drag than ideal models.'}
-          </p>
+          {manualCdOverride ? (
+            <div className="mt-2 flex items-center gap-2 rounded bg-violet-900/40 border border-violet-700 px-3 py-2 text-xs">
+              <span className="text-violet-300 font-medium">CD override active: {manualCdOverride}</span>
+              <span className="text-slate-400">(from .ork — build quality multiplier bypassed)</span>
+              <button type="button" onClick={() => setManualCdOverride('')}
+                className="ml-auto text-slate-400 hover:text-white transition-colors">Clear ×</button>
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500 mt-1">
+              {isTier3
+                ? 'Multiplied into the Barrowman base CD after component drag buildup.'
+                : 'Multiplied into the fineness-ratio CD estimate. As-built rockets typically have 15–30% more drag than ideal models.'}
+            </p>
+          )}
         </div>
 
         {/* Tier 3 extra geometry */}
