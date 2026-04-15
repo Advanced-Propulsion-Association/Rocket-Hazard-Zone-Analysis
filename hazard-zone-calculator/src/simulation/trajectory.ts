@@ -122,7 +122,7 @@ export function simulate(config: SimConfig, dtMax = 0.05): TrajectoryPoint[] {
 
     // Adaptive timestep
     const T_now = thrustAt(motor, t);
-    let dt = T_now > 0 ? 0.02 : Math.min(dtMax, 0.1);
+    const dt = T_now > 0 ? 0.02 : Math.min(dtMax, 0.1);
 
     // RK4
     const k1 = derivs(t,        x,              z,              vx,              vz,              m);
@@ -281,7 +281,7 @@ export function computeHazardZone(input: HazardZoneInput): HazardZoneResult {
 export function computeTier1HazardZone(
   apogee_ft: number,
   siteElev_ft: number,
-  buildQuality = 1.0,
+  cd?: number,
 ): HazardZoneResult {
   const apogee_m    = apogee_ft   * (1 / M_TO_FT);
   const siteElev_m  = siteElev_ft * (1 / M_TO_FT);
@@ -309,7 +309,7 @@ export function computeTier1HazardZone(
     bodyLength_m:   length_m,
     totalMass_kg:   mass_kg,
     motor:          descentMotor,
-    cdOverride:     0.60 * buildQuality,
+    cdOverride:     cd ?? 0.50,
     launchAngle_deg: 0,
     siteElevation_m: siteElev_m,
     siteTemp_K,
@@ -361,6 +361,6 @@ export function computeTier1HazardZone(
     warnings,
     tier1DescentRange_m:     descentRange_m,
     tier1AscentOffset_m:     maxAscentOffset_m,
-    cdEffective:             0.60 * buildQuality,
+    cdEffective:             cd ?? 0.50,
   };
 }

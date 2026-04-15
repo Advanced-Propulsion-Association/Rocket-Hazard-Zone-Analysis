@@ -71,7 +71,7 @@ export async function downloadMotor(motorId: string): Promise<Motor | null> {
 
   // Pick best available sample source: cert > mfr > user
   const ranked = ['cert', 'mfr', 'user'];
-  let best = downloads.find(d => d.source === ranked[0] && d.samples?.length > 0)
+  const best = downloads.find(d => d.source === ranked[0] && d.samples?.length > 0)
           ?? downloads.find(d => d.source === ranked[1] && d.samples?.length > 0)
           ?? downloads.find(d => d.source === ranked[2] && d.samples?.length > 0)
           ?? downloads.find(d => d.samples?.length > 0)

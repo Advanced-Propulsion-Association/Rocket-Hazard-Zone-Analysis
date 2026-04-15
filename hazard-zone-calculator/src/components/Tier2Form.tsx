@@ -89,9 +89,11 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
   const [motorMass, setMotorMass] = useState('');  // lbs
 
   // OpenRocket .ork import
-  const [orkData, setOrkData]       = useState<OpenRocketData | null>(null);
-  const [orkStatus, setOrkStatus]   = useState('');
-  const [orkParsing, setOrkParsing] = useState(false);
+  const [orkData, setOrkData]         = useState<OpenRocketData | null>(null);
+  const [orkStatus, setOrkStatus]     = useState('');
+  const [orkParsing, setOrkParsing]   = useState(false);
+  const [clipAtApogee, setClipAtApogee] = useState(true);
+  const [manualCdOverride, setManualCdOverride] = useState('');
   const orkFileRef = useRef<HTMLInputElement>(null);
 
   // OpenRocket flight data CSV import (Tier 3 only)
@@ -173,7 +175,7 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
     setOrkStatus('Parsing .ork file...');
     try {
       const buffer = await file.arrayBuffer();
-      const data = await parseOrkFile(buffer);
+      const data = await parseOrkFile(buffer, clipAtApogee);
       setOrkData(data);
 
       // Pre-fill geometry fields
@@ -432,6 +434,12 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
       }
     }
 
+    // Manual CD from .ork min CD takes precedence over fineness-ratio estimate
+    if (manualCdOverride) {
+      const v = parseFloat(manualCdOverride);
+      if (isFinite(v) && v > 0) cdOverride = v;
+    }
+
     onComputing();
     setTimeout(() => {
       try {
@@ -521,6 +529,34 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
             {orkStatus}
           </p>
         )}
+        {orkData?.orkMinCd != null && (
+          <div className="mt-3 flex items-center gap-3 flex-wrap">
+            <span className="text-xs text-slate-300">
+              <span className="font-medium text-violet-400">CD from .ork: {orkData.orkMinCd.toFixed(3)}</span>
+              <span className="text-slate-500 ml-1">(minimum from powered flight — most conservative)</span>
+            </span>
+            <button type="button"
+              onClick={() => setManualCdOverride(orkData.orkMinCd!.toFixed(3))}
+              className="text-xs px-2.5 py-1 rounded bg-violet-700 hover:bg-violet-600 text-white transition-colors">
+              Use this CD
+            </button>
+            {manualCdOverride && (
+              <button type="button"
+                onClick={() => setManualCdOverride('')}
+                className="text-xs px-2 py-1 rounded border border-slate-600 hover:border-slate-400 text-slate-400 hover:text-white transition-colors">
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+        <div className="mt-3">
+          <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer select-none">
+            <input type="checkbox" checked={clipAtApogee} onChange={e => setClipAtApogee(e.target.checked)}
+              className="accent-violet-500" />
+            Clip flight data at apogee
+            <span className="text-slate-500">(removes parachute descent — re-upload to apply)</span>
+          </label>
+        </div>
       </Section>
 
       {/* ── Rocket Geometry ─────────────────────────────────────────────────── */}

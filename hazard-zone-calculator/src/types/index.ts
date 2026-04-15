@@ -123,6 +123,7 @@ export interface OpenRocketData {
   flightTime_s?: number;
   groundHitVelocity_ms?: number;
   launchRodVelocity_ms?: number;
+  orkMinCd?: number;
 }
 
 // ─── Motor Lookup (ThrustCurve.org) ─────────────────────────────────────────

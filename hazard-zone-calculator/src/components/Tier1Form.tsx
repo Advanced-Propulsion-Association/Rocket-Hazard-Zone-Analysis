@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { computeTier1HazardZone } from '../simulation/trajectory';
+import { CD_PROFILES } from '../simulation/aerodynamics';
 import type { HazardZoneResult } from '../types';
 
 interface Props {
@@ -31,7 +32,7 @@ async function lookupElevation(lat: number, lon: number): Promise<number | null>
 export function Tier1Form({ onComputing, onResult, onError, onCoordsChange, onWindBearingChange }: Props) {
   const [apogee, setApogee] = useState('');
   const [siteElev, setSiteElev] = useState('0');
-  const [buildQuality, setBuildQuality] = useState('1.0');
+  const [cdProfile, setCdProfile] = useState<number>(0.50);
   const [showAssumptions, setShowAssumptions] = useState(false);
 
   // GPS state
@@ -99,14 +100,13 @@ export function Tier1Form({ onComputing, onResult, onError, onCoordsChange, onWi
     onComputing();
     setTimeout(() => {
       try {
-        const bq = parseFloat(buildQuality) || 1.0;
-        const result = computeTier1HazardZone(apogee_ft, elev_ft, bq);
+        const result = computeTier1HazardZone(apogee_ft, elev_ft, cdProfile);
 
         // Build altitude table at 500 ft steps (1000 ft steps above 10,000 ft)
         const step = apogee_ft >= 10000 ? 1000 : 500;
         const tier1Table: Array<{ altitude_ft: number; hazardRadius_ft: number; hazardRadius_m: number }> = [];
         for (let alt = step; alt <= apogee_ft; alt += step) {
-          const r = computeTier1HazardZone(alt, elev_ft, bq);
+          const r = computeTier1HazardZone(alt, elev_ft, cdProfile);
           tier1Table.push({ altitude_ft: alt, hazardRadius_ft: r.hazardRadius_ft, hazardRadius_m: r.hazardRadius_m });
         }
 
@@ -123,7 +123,7 @@ export function Tier1Form({ onComputing, onResult, onError, onCoordsChange, onWi
         <h2 className="text-base font-semibold text-white mb-1">Operator Mode</h2>
         <p className="text-sm text-slate-400">
           For launch site operators who only know the maximum expected altitude.
-          Uses conservative defaults: CD = 0.6, 20 MPH wind, worst-case launch angle.
+          Uses conservative defaults: 20 MPH wind, worst-case launch angle. Select an aerodynamic profile below.
         </p>
       </div>
 
@@ -159,21 +159,20 @@ export function Tier1Form({ onComputing, onResult, onError, onCoordsChange, onWi
         </label>
       </div>
 
-      {/* Build quality */}
+      {/* CD profile */}
       <label className="block">
-        <span className="text-sm text-slate-300 font-medium">Build quality</span>
+        <span className="text-sm text-slate-300 font-medium">Aerodynamic profile</span>
         <select
-          value={buildQuality}
-          onChange={e => setBuildQuality(e.target.value)}
+          value={cdProfile}
+          onChange={e => setCdProfile(parseFloat(e.target.value))}
           className="mt-1 w-full input-field"
         >
-          <option value="1.0">Ideal — 1.0× (theoretical minimum drag)</option>
-          <option value="1.15">Competition — 1.15× (very smooth finish, minimal hardware)</option>
-          <option value="1.30">Standard build — 1.30× (typical kit rocket, rail buttons, seams)</option>
-          <option value="1.50">Rough build — 1.50× (significant protuberances, rough finish)</option>
+          {CD_PROFILES.map(p => (
+            <option key={p.value} value={p.value}>{p.label} (CD = {p.value})</option>
+          ))}
         </select>
         <p className="text-xs text-slate-500 mt-1">
-          Multiplied into the base CD (0.60). As-built rockets typically have 15–30% more drag than ideal models.
+          Lower CD → longer range → larger (more conservative) FAA hazard zone.
         </p>
       </label>
 
@@ -201,7 +200,7 @@ export function Tier1Form({ onComputing, onResult, onError, onCoordsChange, onWi
               <span className="text-slate-400">Body length</span>
               <span className="text-slate-200">50 in (1,270 mm)</span>
               <span className="text-slate-400">Descent drag coefficient (CD)</span>
-              <span className="text-slate-200">0.60 (high drag → slow fall → more wind drift)</span>
+              <span className="text-slate-200">{cdProfile} — from selected aerodynamic profile</span>
               <span className="text-slate-400">Max launch tilt</span>
               <span className="text-slate-200">20° from vertical (NAR/Tripoli limit)</span>
               <span className="text-slate-400">Surface wind</span>

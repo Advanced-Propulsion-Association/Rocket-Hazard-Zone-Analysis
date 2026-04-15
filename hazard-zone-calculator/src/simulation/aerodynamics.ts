@@ -38,6 +38,19 @@ export function cdMachCorrection(cdSubsonic: number, mach: number): number {
   return cdAt12 * (1.2 / mach);
 }
 
+/**
+ * Named CD profiles for the Tier 1 and Tier 2 dropdowns.
+ * Lower CD = less drag = longer range = LARGER (more conservative) FAA hazard zone.
+ */
+export const CD_PROFILES = [
+  { label: 'Streamlined — polished, optimized fins',  value: 0.35 },
+  { label: 'Standard — typical hobby build',           value: 0.50 },
+  { label: 'Rough — rough finish, blocky fins',        value: 0.65 },
+  { label: 'Unfinished — very rough, no optimization', value: 0.80 },
+] as const;
+
+export type CdProfile = typeof CD_PROFILES[number];
+
 /** Motor class from total impulse (N·s). */
 export function motorClass(totalImpulse_Ns: number): string {
   const classes: [number, string][] = [

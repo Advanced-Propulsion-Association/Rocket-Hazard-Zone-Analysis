@@ -154,7 +154,7 @@ function mapNoseShape(shape: string): OpenRocketData['noseConeType'] {
   return 'ogive';
 }
 
-export async function parseOrkFile(buffer: ArrayBuffer): Promise<OpenRocketData> {
+export async function parseOrkFile(buffer: ArrayBuffer, clipAtApogee = true): Promise<OpenRocketData> {
   const xmlString = await extractXml(buffer);
   const doc = new DOMParser().parseFromString(xmlString, 'text/xml');
 
@@ -282,6 +282,36 @@ export async function parseOrkFile(buffer: ArrayBuffer): Promise<OpenRocketData>
   // ── CG from nose ──────────────────────────────────────────────────────────
   const cgFromNose_m = extractCGFromNose(doc);
 
+  // ── Min CD from databranch (with optional apogee clipping) ────────────────
+  let orkMinCd: number | undefined;
+  {
+    type DataRow = { alt_m: number; cd: number };
+    const branchEls = Array.from(doc.getElementsByTagName('databranch'));
+    for (const branch of branchEls) {
+      const typeAttr = branch.getAttribute('types') ?? '';
+      const cols = typeAttr.split(',').map(s => s.trim().toLowerCase());
+      const altIdx = cols.indexOf('altitude');
+      const cdIdx  = cols.indexOf('drag coefficient');
+      if (cdIdx < 0) continue;
+      const datapoints = Array.from(branch.getElementsByTagName('datapoint'));
+      const rows: DataRow[] = datapoints.map(dp => {
+        const vals = (dp.textContent ?? '').split(',');
+        const num = (i: number) => i >= 0 ? parseFloat(vals[i] ?? '') : NaN;
+        return { alt_m: num(altIdx), cd: num(cdIdx) };
+      });
+      let workRows = rows;
+      if (clipAtApogee && altIdx >= 0 && rows.length >= 2) {
+        let maxAltIdx = 0;
+        for (let i = 1; i < rows.length; i++) {
+          if (isFinite(rows[i].alt_m) && rows[i].alt_m > rows[maxAltIdx].alt_m) maxAltIdx = i;
+        }
+        workRows = rows.slice(0, maxAltIdx + 1);
+      }
+      const cdVals = workRows.map(r => r.cd).filter(v => isFinite(v) && v > 0);
+      if (cdVals.length > 0) orkMinCd = Math.min(...cdVals);
+    }
+  }
+
   return {
     rocketName,
     bodyDiameter_in: radius_m * 2 * M_TO_IN,
@@ -304,6 +334,7 @@ export async function parseOrkFile(buffer: ArrayBuffer): Promise<OpenRocketData>
     flightTime_s,
     groundHitVelocity_ms,
     launchRodVelocity_ms,
+    orkMinCd,
   };
 }
 
