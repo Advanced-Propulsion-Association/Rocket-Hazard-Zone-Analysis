@@ -66,6 +66,7 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
   const [siteElev, setSiteElev] = useState('0');
   const [siteTemp, setSiteTemp] = useState('59');
   const [wind, setWind]         = useState('20');
+  const [maxAngle, setMaxAngle] = useState('20');
 
   // GPS state
   const [lat, setLat]       = useState('');
@@ -349,7 +350,8 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
     const m_lb  = parseFloat(mass);
     const elev  = parseFloat(siteElev) || 0;
     const temp  = parseFloat(siteTemp) || 59;
-    const w_mph = Math.min(parseFloat(wind) || 20, 20);
+    const w_mph = Math.min(wind === '' || isNaN(parseFloat(wind)) ? 20 : Math.max(0, parseFloat(wind)), 20);
+    const maxAng = Math.min(Math.max(1, maxAngle === '' || isNaN(parseFloat(maxAngle)) ? 20 : parseFloat(maxAngle)), 20);
 
     if (!d_in || d_in <= 0) { onError('Enter a valid body diameter.'); return; }
     if (!l_in || l_in <= 0) { onError('Enter a valid body length.'); return; }
@@ -460,6 +462,7 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
           siteElevation_ft:  elev,
           siteTemp_F:        temp,
           surfaceWind_mph:   w_mph,
+          maxLaunchAngle_deg: maxAng,
           buildQuality:      (isTier3 && orFlightData) ? 1.0 : bq,
           cdOverride,
           storeTrajectories: true,
@@ -476,6 +479,7 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
           tier,
           siteElevation_ft: elev,
           maxWindSpeed_mph: w_mph,
+          maxLaunchAngle_deg: maxAng,
           diameter_in: d_in,
           length_in: l_in,
           totalMass_lb: m_lb,
@@ -850,6 +854,12 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
               value={wind} onChange={e => setWind(e.target.value)}
               placeholder="20" className="input-field" />
             <Help>NAR/Tripoli maximum is 20 MPH. Wind pushes the rocket downrange during descent, increasing hazard radius.</Help>
+          </Field>
+          <Field label="Max launch angle (°, site limit)">
+            <input type="number" min="1" max="20" step="1"
+              value={maxAngle} onChange={e => setMaxAngle(e.target.value)}
+              placeholder="20" className="input-field" />
+            <Help>NAR/Tripoli hard limit is 20°. Enter a lower value if your launch site imposes a stricter angle restriction. The simulation sweeps 0° up to this cap.</Help>
           </Field>
         </div>
 

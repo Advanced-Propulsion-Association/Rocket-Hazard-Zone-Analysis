@@ -2,7 +2,7 @@
  * buildMapSnapshot — fetch OSM tiles, stitch to canvas, draw hazard circle.
  * Returns a PNG data URL, or null on any fetch/canvas failure.
  *
- * Output canvas: 580 × 220 px (full report width, enough height for context).
+ * Output canvas: 580 × 440 px (full report width; tall enough for hazard circle).
  */
 
 function latLonToTile(lat: number, lon: number, z: number): { x: number; y: number; fx: number; fy: number } {
@@ -14,9 +14,11 @@ function latLonToTile(lat: number, lon: number, z: number): { x: number; y: numb
 }
 
 function calcZoom(lat: number, hazardRadius_m: number): number {
-  // Target: hazard circle radius ≈ 200px on a 580px-wide canvas
+  // Target: hazard circle radius ≈ 70% of the shorter output half-dimension,
+  // so the full circle always fits within the crop with margin on all sides.
+  const targetRadiusPx = Math.min(OUT_W, OUT_H) / 2 * 0.7;
   const latRad = (lat * Math.PI) / 180;
-  const z = Math.log2((156543.03392 * Math.cos(latRad) * 200) / hazardRadius_m);
+  const z = Math.log2((156543.03392 * Math.cos(latRad) * targetRadiusPx) / hazardRadius_m);
   return Math.max(8, Math.min(17, Math.round(z)));
 }
 
@@ -31,7 +33,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 }
 
 const OUT_W = 580;
-const OUT_H = 220;
+const OUT_H = 440;
 const TILE = 256;
 
 export async function buildMapSnapshot(

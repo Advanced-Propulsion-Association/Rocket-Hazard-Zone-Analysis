@@ -122,7 +122,7 @@ export function simulate(config: SimConfig, dtMax = 0.05): TrajectoryPoint[] {
 
     // Adaptive timestep
     const T_now = thrustAt(motor, t);
-    const dt = T_now > 0 ? 0.02 : Math.min(dtMax, 0.1);
+    const dt = T_now > 0 ? 0.01 : Math.min(dtMax, 0.1);
 
     // RK4
     const k1 = derivs(t,        x,              z,              vx,              vz,              m);
@@ -168,6 +168,7 @@ export interface HazardZoneInput {
   siteElevation_ft: number;
   siteTemp_F: number;
   surfaceWind_mph: number;
+  maxLaunchAngle_deg?: number;  // site-restricted angle cap, defaults to 20 (NAR/Tripoli)
   storeTrajectories?: boolean;
 }
 
@@ -185,6 +186,9 @@ export function computeHazardZone(input: HazardZoneInput): HazardZoneResult {
   const warnings: string[] = [];
   if (I_total > 10240) warnings.push('Motor class M or above — additional FAA notification required.');
   if (input.surfaceWind_mph > 20) warnings.push('Wind exceeds NAR/Tripoli 20 MPH launch limit.');
+
+  const maxAngleDeg = Math.min(input.maxLaunchAngle_deg ?? 20, 20);
+  if (maxAngleDeg < 20) warnings.push(`Launch angle restricted to ${maxAngleDeg}° per site rules (NAR/Tripoli max is 20°).`);
 
   // Build quality + stability correction pipeline
   // Order: base CD → × buildQuality → × stability multiplier (if unstable)
@@ -205,7 +209,12 @@ export function computeHazardZone(input: HazardZoneInput): HazardZoneResult {
   let bestAngle = 0;
   const trajectories: Record<number, TrajectoryPoint[]> = {};
 
-  for (let angleDeg = 0; angleDeg <= 20; angleDeg += 2) {
+  // Build angle list: every 2° from 0 to maxAngleDeg, always including maxAngleDeg itself.
+  const sweepAngles: number[] = [];
+  for (let a = 0; a <= maxAngleDeg; a += 2) sweepAngles.push(a);
+  if (maxAngleDeg % 2 !== 0) sweepAngles.push(maxAngleDeg);
+
+  for (const angleDeg of sweepAngles) {
     const cfg: SimConfig = {
       bodyDiameter_m: diameter_m,
       bodyLength_m:   length_m,
@@ -231,13 +240,16 @@ export function computeHazardZone(input: HazardZoneInput): HazardZoneResult {
     }
   }
 
-  // Apogee from vertical, no-wind shot
+  // Apogee from vertical, no-wind shot.
+  // Use baseCdGeometry (no stability multiplier) — the stability correction models
+  // tumbling descent drag and must not penalise the powered ascent phase.
+  // OR's stored apogee also uses no stability penalty, so this keeps comparison valid.
   const vertCfg: SimConfig = {
     bodyDiameter_m: diameter_m,
     bodyLength_m:   length_m,
     totalMass_kg:   mass_kg,
     motor:          input.motor,
-    cdOverride:     effectiveCdOverride,
+    cdOverride:     baseCdGeometry,
     launchAngle_deg: 0,
     siteElevation_m: siteElev_m,
     siteTemp_K,

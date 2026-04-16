@@ -105,6 +105,7 @@ export interface PrintInputSummary {
   tier: InputTier;
   siteElevation_ft: number;
   maxWindSpeed_mph: number;
+  maxLaunchAngle_deg?: number;  // site-restricted cap (omit = 20° NAR/Tripoli default)
   // Tier 1
   apogee_ft?: number;
   // Tier 2/3

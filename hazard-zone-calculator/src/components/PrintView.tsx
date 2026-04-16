@@ -151,7 +151,7 @@ export function PrintView({ result, launchCoords, inputSummary, mapSnapshotUrl }
               <span><b>Launch site:</b> {launchCoords.lat.toFixed(5)}° N, {Math.abs(launchCoords.lon).toFixed(5)}° {launchCoords.lon < 0 ? 'W' : 'E'}</span>
             )}
             {inputSummary && <span><b>Site elevation:</b> {inputSummary.siteElevation_ft.toFixed(0)} ft MSL</span>}
-            {inputSummary && <span><b>Max wind:</b> {inputSummary.maxWindSpeed_mph} MPH · <b>Max launch angle:</b> 20°</span>}
+            {inputSummary && <span><b>Max wind:</b> {inputSummary.maxWindSpeed_mph} MPH · <b>Max launch angle:</b> {inputSummary.maxLaunchAngle_deg ?? 20}°</span>}
           </div>
         </div>
 
@@ -338,7 +338,7 @@ export function PrintView({ result, launchCoords, inputSummary, mapSnapshotUrl }
               <img
                 src={mapSnapshotUrl}
                 alt="Hazard zone map"
-                style={{ width: '100%', height: '220px', objectFit: 'cover', border: '1px solid #ccc', borderRadius: '4px', display: 'block' }}
+                style={{ width: '100%', height: '440px', objectFit: 'cover', border: '1px solid #ccc', borderRadius: '4px', display: 'block' }}
               />
               <div style={{ fontSize: '8.5px', color: '#555', marginTop: '4px' }}>
                 Red dashed circle = {r.hazardRadius_ft.toFixed(0)} ft ({r.hazardRadius_m.toFixed(0)} m) hazard radius · Blue dot = launch site · © OpenStreetMap contributors
