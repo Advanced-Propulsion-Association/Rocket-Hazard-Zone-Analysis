@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TierSelector } from './components/TierSelector';
 import { Tier1Form } from './components/Tier1Form';
 import { Tier2Form } from './components/Tier2Form';
 import { Results } from './components/Results';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import type { HazardZoneResult, InputTier } from './types';
+import { PrintView } from './components/PrintView';
+import { buildMapSnapshot } from './utils/mapSnapshot';
+import type { HazardZoneResult, InputTier, PrintInputSummary } from './types';
 
 export default function App() {
   const [tier, setTier] = useState<InputTier>('tier1');
@@ -14,6 +16,9 @@ export default function App() {
   const [debugLog, setDebugLog] = useState<string>('');
   const [launchCoords, setLaunchCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [windBearing, setWindBearing] = useState<number | null>(null);
+  const [inputSummary, setInputSummary] = useState<PrintInputSummary | null>(null);
+  const [mapSnapshot, setMapSnapshot] = useState<string | null>(null);
+  const [printPending, setPrintPending] = useState(false);
 
   const handleResult = (r: HazardZoneResult) => {
     // Build a plain-text debug dump before trying to render
@@ -52,6 +57,22 @@ export default function App() {
     setComputing(false);
   };
 
+  const handlePrint = async () => {
+    if (launchCoords && result) {
+      const snap = await buildMapSnapshot(launchCoords.lat, launchCoords.lon, result.hazardRadius_m);
+      setMapSnapshot(snap);
+    }
+    setPrintPending(true);
+  };
+
+  useEffect(() => {
+    if (printPending) {
+      setPrintPending(false);
+      // One tick delay: let React flush PrintView's updated mapSnapshotUrl before printing
+      setTimeout(() => window.print(), 50);
+    }
+  }, [printPending, mapSnapshot]);
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
       <header className="border-b border-slate-700 bg-slate-800/60 backdrop-blur">
@@ -79,6 +100,7 @@ export default function App() {
               onError={handleError}
               onCoordsChange={(lat, lon) => setLaunchCoords({ lat, lon })}
               onWindBearingChange={(b) => setWindBearing(b)}
+              onInputChange={setInputSummary}
             />
           )}
           {(tier === 'tier2' || tier === 'tier3') && (
@@ -89,6 +111,7 @@ export default function App() {
               onError={handleError}
               onCoordsChange={(lat, lon) => setLaunchCoords({ lat, lon })}
               onWindBearingChange={(b) => setWindBearing(b)}
+              onInputChange={setInputSummary}
             />
           )}
         </div>
@@ -111,7 +134,7 @@ export default function App() {
 
         {/* Debug log — always visible when there's output */}
         {debugLog && (
-          <div className="rounded-xl border border-slate-600 bg-slate-800/60 overflow-hidden">
+          <div className="rounded-xl border border-slate-600 bg-slate-800/60 overflow-hidden print:hidden">
             <div className="px-4 py-2 border-b border-slate-600 flex justify-between items-center">
               <p className="text-xs font-medium text-slate-300 uppercase tracking-widest">Debug Log</p>
               <button onClick={() => setDebugLog('')} className="text-xs text-slate-500 hover:text-slate-300">clear</button>
@@ -125,8 +148,17 @@ export default function App() {
         {/* Results — wrapped in error boundary so a render error shows the stack, not a blank screen */}
         {result && !computing && (
           <ErrorBoundary>
-            <Results result={result} launchCoords={launchCoords} windBearing={windBearing} />
+            <Results result={result} launchCoords={launchCoords} windBearing={windBearing} onPrint={handlePrint} />
           </ErrorBoundary>
+        )}
+        {result && (
+          <PrintView
+            result={result}
+            launchCoords={launchCoords}
+            windBearing={windBearing}
+            inputSummary={inputSummary}
+            mapSnapshotUrl={mapSnapshot}
+          />
         )}
 
         <p className="text-xs text-slate-500 text-center pb-6">
