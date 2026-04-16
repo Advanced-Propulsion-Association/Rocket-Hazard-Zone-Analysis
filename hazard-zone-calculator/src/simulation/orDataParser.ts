@@ -12,8 +12,16 @@
  */
 
 export interface OrFlightDataResult {
-  /** Median drag coefficient from pre-apogee phase — used as cdOverride */
+  /** Median drag coefficient from pre-apogee phase — informational */
   representativeCd: number;
+  /**
+   * Subsonic baseline CD — minimum CD from low-Mach (M < 0.4) pre-apogee points,
+   * falling back to min of all pre-apogee points. This is the correct input for
+   * cdMachCorrection(): it represents CD at near-zero Mach, which the sim then
+   * scales up through the transonic/supersonic regime. Using the median
+   * (representativeCd) instead would double-apply Mach correction.
+   */
+  subsonicBaseCd: number;
   /** Component breakdown if OR exports them separately */
   cdFriction?: number;
   cdPressure?: number;
@@ -141,9 +149,17 @@ export function parseOrFlightData(csvText: string): OrFlightDataResult {
     );
   }
 
-  // ── Representative CD: median of all valid pre-apogee points ───────────────
+  // ── Representative CD: median of all valid pre-apogee points (informational) ─
   const cds = validPoints.map(p => p.cd).sort((a, b) => a - b);
   const representativeCd = cds[Math.floor(cds.length / 2)];
+
+  // ── Subsonic baseline CD: min from low-Mach points (used for sim) ──────────
+  // We want the near-zero-Mach CD as input to cdMachCorrection(). The median
+  // includes transonic samples which would cause double-correction. Prefer
+  // points where M < 0.4; fall back to min of all points if fewer than 5.
+  const lowMachPts = validPoints.filter(p => p.mach < 0.4);
+  const basePool = lowMachPts.length >= 5 ? lowMachPts : validPoints;
+  const subsonicBaseCd = Math.min(...basePool.map(p => p.cd));
 
   // Component medians if available
   const componentMedian = (key: 'cdFr' | 'cdPr' | 'cdBa') => {
@@ -164,6 +180,7 @@ export function parseOrFlightData(csvText: string): OrFlightDataResult {
 
   return {
     representativeCd,
+    subsonicBaseCd,
     cdFriction: componentMedian('cdFr'),
     cdPressure: componentMedian('cdPr'),
     cdBase:     componentMedian('cdBa'),

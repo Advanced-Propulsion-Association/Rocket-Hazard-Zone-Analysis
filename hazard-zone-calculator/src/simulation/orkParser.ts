@@ -279,10 +279,11 @@ export async function parseOrkFile(buffer: ArrayBuffer, clipAtApogee = true): Pr
     }
   }
 
-  // ── CG from nose ──────────────────────────────────────────────────────────
-  const cgFromNose_m = extractCGFromNose(doc);
-
-  // ── Min CD from databranch (with optional apogee clipping) ────────────────
+  // ── CG, CP, and min CD from databranch ───────────────────────────────────
+  // OR stores "Position of CG" and "Position of CP" as databranch columns.
+  // We read the first valid datapoint (launch conditions, full propellant load).
+  let cgFromNose_m: number | undefined;
+  let cpFromNose_m: number | undefined;
   let orkMinCd: number | undefined;
   {
     type DataRow = { alt_m: number; cd: number };
@@ -292,8 +293,25 @@ export async function parseOrkFile(buffer: ArrayBuffer, clipAtApogee = true): Pr
       const cols = typeAttr.split(',').map(s => s.trim().toLowerCase());
       const altIdx = cols.indexOf('altitude');
       const cdIdx  = cols.indexOf('drag coefficient');
-      if (cdIdx < 0) continue;
+      const cgIdx  = cols.findIndex(c => c.includes('position of cg') || c === 'cg location');
+      const cpIdx  = cols.findIndex(c => c.includes('position of cp') || c === 'cp location');
+
       const datapoints = Array.from(branch.getElementsByTagName('datapoint'));
+      if (datapoints.length === 0) continue;
+
+      // CG/CP from first datapoint (t=0, fully loaded)
+      if (cgFromNose_m == null && cgIdx >= 0) {
+        const vals = (datapoints[0].textContent ?? '').split(',');
+        const v = parseFloat(vals[cgIdx] ?? '');
+        if (isFinite(v) && v > 0) cgFromNose_m = v;
+      }
+      if (cpFromNose_m == null && cpIdx >= 0) {
+        const vals = (datapoints[0].textContent ?? '').split(',');
+        const v = parseFloat(vals[cpIdx] ?? '');
+        if (isFinite(v) && v > 0) cpFromNose_m = v;
+      }
+
+      if (cdIdx < 0) continue;
       const rows: DataRow[] = datapoints.map(dp => {
         const vals = (dp.textContent ?? '').split(',');
         const num = (i: number) => i >= 0 ? parseFloat(vals[i] ?? '') : NaN;
@@ -310,6 +328,11 @@ export async function parseOrkFile(buffer: ArrayBuffer, clipAtApogee = true): Pr
       const cdVals = workRows.map(r => r.cd).filter(v => isFinite(v) && v > 0);
       if (cdVals.length > 0) orkMinCd = Math.min(...cdVals);
     }
+
+    // Fallback: scan for a top-level <cg> element (present when mass override is set)
+    if (cgFromNose_m == null) {
+      cgFromNose_m = extractCGFromNose(doc);
+    }
   }
 
   return {
@@ -324,6 +347,7 @@ export async function parseOrkFile(buffer: ArrayBuffer, clipAtApogee = true): Pr
     finSweep_in:     finSweep_m > 0 ? finSweep_m * M_TO_IN : undefined,
     numFins:         numFinsFromEls > 0 ? numFinsFromEls : extractNumFins(doc),
     cgFromNose_in:   cgFromNose_m != null ? cgFromNose_m * M_TO_IN : undefined,
+    cpFromNose_in:   cpFromNose_m != null ? cpFromNose_m * M_TO_IN : undefined,
     motorDesignation:  motorDesignation || undefined,
     motorManufacturer: motorManufacturer || undefined,
     maxApogee_m,
