@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { computeTier1HazardZone } from '../simulation/trajectory';
-import type { HazardZoneResult } from '../types';
+import type { HazardZoneResult, PrintInputSummary } from '../types';
 
 interface Props {
   onComputing: () => void;
@@ -8,6 +8,7 @@ interface Props {
   onError: (msg: string) => void;
   onCoordsChange?: (lat: number, lon: number) => void;
   onWindBearingChange?: (bearing: number | null) => void;
+  onInputChange?: (summary: PrintInputSummary) => void;
 }
 
 
@@ -28,7 +29,7 @@ async function lookupElevation(lat: number, lon: number): Promise<number | null>
   }
 }
 
-export function Tier1Form({ onComputing, onResult, onError, onCoordsChange, onWindBearingChange }: Props) {
+export function Tier1Form({ onComputing, onResult, onError, onCoordsChange, onWindBearingChange, onInputChange }: Props) {
   const [apogee, setApogee] = useState('');
   const [siteElev, setSiteElev] = useState('0');
   const [showAssumptions, setShowAssumptions] = useState(false);
@@ -108,6 +109,12 @@ export function Tier1Form({ onComputing, onResult, onError, onCoordsChange, onWi
           tier1Table.push({ altitude_ft: alt, hazardRadius_ft: r.hazardRadius_ft, hazardRadius_m: r.hazardRadius_m });
         }
 
+        onInputChange?.({
+          tier: 'tier1',
+          apogee_ft: apogee_ft,
+          siteElevation_ft: elev_ft,
+          maxWindSpeed_mph: 20,
+        });
         onResult({ ...result, tier1Table });
       } catch (err) {
         onError('Simulation error: ' + String(err));
