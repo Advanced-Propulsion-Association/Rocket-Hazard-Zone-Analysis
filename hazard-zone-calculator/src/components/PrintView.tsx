@@ -124,7 +124,7 @@ export function PrintView({ result, launchCoords, inputSummary, mapSnapshotUrl }
   };
 
   return (
-    <div id="print-root" style={{ display: 'none' }}>
+    <div id="print-root" className="hidden print:block">
 
       {/* ── PAGE 1 ── */}
       <div style={S.page}>
