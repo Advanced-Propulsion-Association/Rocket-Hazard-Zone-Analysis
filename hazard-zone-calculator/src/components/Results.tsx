@@ -11,6 +11,7 @@ interface Props {
   result: HazardZoneResult;
   launchCoords?: { lat: number; lon: number } | null;
   windBearing?: number | null;
+  onPrint?: () => void;
 }
 
 const M_TO_FT = 3.28084;
@@ -25,7 +26,7 @@ function downloadFile(content: string, filename: string, mimeType: string) {
   URL.revokeObjectURL(url);
 }
 
-export function Results({ result, launchCoords, windBearing }: Props) {
+export function Results({ result, launchCoords, windBearing, onPrint }: Props) {
   const r = result;
   const quarterFt = r.quarterAltitudeRule_m * M_TO_FT;
   const [showPlot, setShowPlot] = useState(true);
@@ -341,6 +342,20 @@ export function Results({ result, launchCoords, windBearing }: Props) {
               <p className="text-xs text-slate-500 mt-0.5">{r.orkApogee_m.toFixed(0)} m</p>
             </div>
           </div>
+          {(() => {
+            const pct = ((r.maxApogee_m - r.orkApogee_m!) / r.orkApogee_m!) * 100;
+            const over = pct >= 0;
+            return (
+              <div className={`mt-3 rounded-lg px-4 py-2.5 text-center ${over ? 'bg-emerald-900/30 border border-emerald-700/50' : 'bg-amber-900/30 border border-amber-700/50'}`}>
+                <span className={`text-lg font-bold tabular-nums ${over ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  {over ? '+' : ''}{pct.toFixed(1)}%
+                </span>
+                <span className={`ml-2 text-xs ${over ? 'text-emerald-300/70' : 'text-amber-300/70'}`}>
+                  {over ? 'conservative overshoot' : 'undershooting OR — review inputs'}
+                </span>
+              </div>
+            );
+          })()}
           <p className="mt-3 text-xs text-slate-400">
             Our model is a 3-DOF ballistic simulation (no recovery, conservative CD). OpenRocket uses
             a 6-DOF model with fins, recovery, and more detailed aerodynamics. Differences &lt;15% are
@@ -444,7 +459,7 @@ export function Results({ result, launchCoords, windBearing }: Props) {
           </button>
         )}
         <button
-          onClick={() => window.print()}
+          onClick={() => onPrint ? onPrint() : window.print()}
           className="text-xs px-3 py-1.5 rounded border border-blue-600 hover:border-blue-400 text-blue-400 hover:text-blue-200 transition-colors"
         >
           Print / Save as PDF
@@ -453,7 +468,7 @@ export function Results({ result, launchCoords, windBearing }: Props) {
 
       {/* Trajectory plot */}
       {traces.length > 0 && (
-        <div className="rounded-xl border border-slate-700 overflow-hidden">
+        <div className="rounded-xl border border-slate-700 overflow-hidden print:break-inside-avoid">
           <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/60 flex justify-between items-center">
             <div>
               <p className="text-sm font-medium text-slate-200">Ballistic Trajectory Sweep</p>
@@ -470,7 +485,7 @@ export function Results({ result, launchCoords, windBearing }: Props) {
               {showPlot ? 'Hide' : 'Show'}
             </button>
           </div>
-          {showPlot && (
+          <div className={showPlot ? '' : 'hidden print:block'}>
             <Plot
               data={traces as never[]}
               layout={layout}
@@ -478,7 +493,7 @@ export function Results({ result, launchCoords, windBearing }: Props) {
               style={{ width: '100%', height: '380px' }}
               onError={(err: unknown) => console.warn('Plotly error:', err)}
             />
-          )}
+          </div>
         </div>
       )}
 
