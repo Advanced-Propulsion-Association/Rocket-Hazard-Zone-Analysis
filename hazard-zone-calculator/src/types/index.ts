@@ -99,6 +99,27 @@ export interface HazardZoneResult {
   };
 }
 
+// ─── Print ───────────────────────────────────────────────────────────────────
+
+export interface PrintInputSummary {
+  tier: InputTier;
+  siteElevation_ft: number;
+  maxWindSpeed_mph: number;
+  // Tier 1
+  apogee_ft?: number;
+  // Tier 2/3
+  diameter_in?: number;
+  length_in?: number;
+  totalMass_lb?: number;
+  motorDesignation?: string;
+  cdSource?: string;          // e.g. "fineness ratio", ".ork file", "OR CSV"
+  buildQualityMultiplier?: number; // e.g. 1.10
+  // Tier 3 only
+  noseConeType?: string;
+  numFins?: number;
+  nozzleExitDiameter_in?: number;
+}
+
 // ─── OpenRocket Data ─────────────────────────────────────────────────────────
 
 export interface OpenRocketData {
@@ -113,6 +134,7 @@ export interface OpenRocketData {
   finSweep_in?: number;
   numFins?: number;
   cgFromNose_in?: number;
+  cpFromNose_in?: number;
   motorDesignation?: string;
   motorManufacturer?: string;
   maxApogee_m?: number;
