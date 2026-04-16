@@ -74,6 +74,7 @@ export default function App() {
   }, [printPending, mapSnapshot]);
 
   return (
+    <>
     <div className="min-h-screen bg-slate-900 text-slate-100">
       <header className="border-b border-slate-700 bg-slate-800/60 backdrop-blur">
         <div className="max-w-4xl mx-auto px-6 py-4">
@@ -151,21 +152,21 @@ export default function App() {
             <Results result={result} launchCoords={launchCoords} windBearing={windBearing} onPrint={handlePrint} />
           </ErrorBoundary>
         )}
-        {result && (
-          <PrintView
-            result={result}
-            launchCoords={launchCoords}
-            windBearing={windBearing}
-            inputSummary={inputSummary}
-            mapSnapshotUrl={mapSnapshot}
-          />
-        )}
-
         <p className="text-xs text-slate-500 text-center pb-6">
           Hazard zone = worst-case ballistic impact radius assuming total recovery failure,
           20&deg; max launch angle, 20 MPH max wind. Prepared in support of FAA AST amateur rocket hazard zone analysis.
         </p>
       </main>
     </div>
+    {result && (
+      <PrintView
+        result={result}
+        launchCoords={launchCoords}
+        windBearing={windBearing}
+        inputSummary={inputSummary}
+        mapSnapshotUrl={mapSnapshot}
+      />
+    )}
+    </>
   );
 }
