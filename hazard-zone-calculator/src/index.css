@@ -7,16 +7,7 @@ body {
   color: #e2e8f0;
 }
 
-@media print {
-  /* Hide entire app; PrintView (#print-root) overrides this */
-  body > #root > * {
-    display: none !important;
-  }
-  #print-root {
-    display: block !important;
-  }
-  @page {
-    size: letter portrait;
-    margin: 0.75in;
-  }
+@page {
+  size: letter portrait;
+  margin: 0.75in;
 }
