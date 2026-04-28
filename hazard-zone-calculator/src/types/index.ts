@@ -16,6 +16,15 @@ export interface Motor {
   nozzleExitAreaM2?: number; // optional, for altitude correction
 }
 
+// ─── Multi-Stage ─────────────────────────────────────────────────────────────
+
+export interface StageConfig {
+  motor: Motor;
+  stageMass_lb: number;         // structural/hardware mass of this stage only (excluding motor)
+  separationDelay_s?: number;   // coast time after burnout before separation (default 0)
+  tumbleOnSeparation?: boolean; // default true — separated stages tumble, applying 2× CD
+}
+
 // ─── Rocket Configuration ────────────────────────────────────────────────────
 
 export type InputTier = 'tier1' | 'tier2' | 'tier3';
@@ -86,6 +95,8 @@ export interface HazardZoneResult {
   cdMultiplier?: number;
   cdEffective?: number;
   stabilityCategory?: 'stable' | 'marginal' | 'unstable';
+  // Multi-stage: per-stage impact ranges
+  stageImpacts?: Array<{ stage: number; label: string; range_m: number; range_ft: number }>;
   // OpenRocket comparison
   orkApogee_m?: number;
   orkMotorDesignation?: string;
@@ -95,6 +106,7 @@ export interface HazardZoneResult {
     CD_base: number;
     CD_fins: number;
     CD_nose_pressure: number;
+    CD_parasitic: number;
     CD_total: number;
   };
 }

@@ -16,9 +16,6 @@
 
 const IN_TO_M = 0.0254;
 
-/** Turbulent flat-plate skin friction coefficient at Re ≈ 2×10^6 (conservative). */
-const CF = 0.005;
-
 export interface BarrowmanDragInput {
   noseConeType: 'ogive' | 'conical' | 'parabolic' | 'haack';
   noseLength_in: number;
@@ -29,6 +26,8 @@ export interface BarrowmanDragInput {
   finSpan_in: number;
   numFins: number;
   // fin thickness ratio t/c — not a user input, defaults to 0.05 (typical plywood/fiberglass)
+  totalImpulse_Ns?: number;  // from motor; used for Re-based Cf scaling
+  totalMass_kg?: number;     // total launch mass (airframe + motor); used for Re-based Cf scaling
 }
 
 export interface BarrowmanDragBreakdown {
@@ -36,16 +35,27 @@ export interface BarrowmanDragBreakdown {
   CD_base: number;
   CD_fins: number;
   CD_nose_pressure: number;
+  CD_parasitic: number;
   CD_total: number;
 }
 
 export function barrowmanDragBreakdown(input: BarrowmanDragInput): BarrowmanDragBreakdown {
+  // Re-based skin friction: reduces Cf at high Reynolds numbers (large N/O-class rockets)
+  const v_ref_ms = (input.totalImpulse_Ns != null && input.totalImpulse_Ns > 0
+                 && input.totalMass_kg    != null && input.totalMass_kg    > 0)
+    ? input.totalImpulse_Ns / (input.totalMass_kg * 2.0)
+    : 250;
+  const Re_L = v_ref_ms * (input.bodyLength_in * IN_TO_M) / 1.5e-5;
+  const CF   = Math.max(0.004, 0.005 * Math.pow(3e7 / Math.max(Re_L, 3e7), 0.15));
+  /** Parasitic drag: launch lugs, surface roughness, body joints (conservative constant). */
+  const CD_parasitic = 0.02;
+
   const D = input.bodyDiameter_in * IN_TO_M;
   const R = D / 2;
   const A_ref = Math.PI * R * R;
 
   if (A_ref <= 0 || D <= 0) {
-    return { CD_friction: 0.35, CD_base: 0.05, CD_fins: 0, CD_nose_pressure: 0, CD_total: 0.40 };
+    return { CD_friction: 0.35, CD_base: 0.05, CD_fins: 0, CD_nose_pressure: 0, CD_parasitic, CD_total: 0.35 + 0.05 + CD_parasitic };
   }
 
   const L_n = input.noseLength_in * IN_TO_M;
@@ -96,9 +106,9 @@ export function barrowmanDragBreakdown(input: BarrowmanDragInput): BarrowmanDrag
     CD_fins = input.numFins * (2 * A_fin / A_ref) * CF * (1 + 2 * t_over_c) * 1.1;
   }
 
-  const CD_total = CD_friction + CD_nose_pressure + CD_base + CD_fins;
+  const CD_total = CD_friction + CD_nose_pressure + CD_base + CD_fins + CD_parasitic;
 
-  return { CD_friction, CD_base, CD_fins, CD_nose_pressure, CD_total };
+  return { CD_friction, CD_base, CD_fins, CD_nose_pressure, CD_parasitic, CD_total };
 }
 
 /** Convenience wrapper — returns just the total CD. */

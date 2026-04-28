@@ -16,26 +16,31 @@ export function cdFromFineness(finessRatio: number): number {
 
 /**
  * Mach-number correction applied on top of subsonic CD.
- * Piecewise model calibrated to match RASAero II outputs for typical rockets.
+ * OR-calibrated model (session 8) matching OpenRocket behavior for ogive/haack noses.
  *
- *  M < 0.8   : subsonic baseline
- *  0.8–1.0   : transonic wave-drag rise (quadratic)
- *  1.0–1.2   : peak and linear decline
- *  M > 1.2   : supersonic ~1/M falloff
+ * OR adds ~zero wave drag for tangent ogive (sinphi=0 bug #2998) and very little for
+ * haack/Von Kármán noses. At supersonic speeds OR's Van Driest skin friction correction
+ * reduces total CD below subsonic. Peak 1.20× at M=1.0, decaying to 0.71× at M=2.0.
+ *
+ *  M < 0.87  : subsonic baseline (drag rise onset matches OR ~M=0.85–0.90)
+ *  0.87–1.0  : transonic rise (quadratic) → 1.20× at M=1.0
+ *  1.0–1.3   : linear decline → 0.91× at M=1.3
+ *  M > 1.3   : power-law decay; 0.84× at M=1.5, 0.71× at M=2.0
+ *
+ * Sources: aerodynamics_reference.md §12.1–12.4
  */
 export function cdMachCorrection(cdSubsonic: number, mach: number): number {
-  if (mach < 0.8) return cdSubsonic;
+  if (mach < 0.87) return cdSubsonic;
   if (mach < 1.0) {
-    const t = (mach - 0.8) / 0.2;
-    return cdSubsonic * (1.0 + 1.1 * t * t);
+    const t = (mach - 0.87) / 0.13;
+    return cdSubsonic * (1.0 + 0.20 * t * t);  // 1.0→1.20 at M=1.0
   }
-  if (mach < 1.2) {
-    const t = (mach - 1.0) / 0.2;
-    return cdSubsonic * (2.1 - 0.4 * t);
+  if (mach < 1.3) {
+    const t = (mach - 1.0) / 0.3;
+    return cdSubsonic * (1.20 - 0.29 * t);      // 1.20→0.91 at M=1.3
   }
-  // Supersonic: continuous at M=1.2
-  const cdAt12 = cdSubsonic * (2.1 - 0.4);
-  return cdAt12 * (1.2 / mach);
+  // Supersonic: power-law decay continuous at M=1.3; 0.91→0.84→0.71 at M=1.3→1.5→2.0
+  return cdSubsonic * 1.055 * Math.pow(mach, -0.561);
 }
 
 /**

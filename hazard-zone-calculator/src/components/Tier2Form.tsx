@@ -1,13 +1,13 @@
 import { useState, useRef } from 'react';
-import { computeHazardZone } from '../simulation/trajectory';
-import { parseRaspEng, makeBoxcarMotor } from '../simulation/motor';
+import { computeHazardZone, computeMultiStageHazardZone } from '../simulation/trajectory';
+import { parseRaspEng, makeBoxcarMotor, totalImpulse } from '../simulation/motor';
 import { lookupMotor } from '../motors/thrustcurve';
 import { parseOrkFile } from '../simulation/orkParser';
 import { barrowmanDragBreakdown } from '../simulation/barrowmanDrag';
 import type { BarrowmanDragBreakdown } from '../simulation/barrowmanDrag';
 import { parseOrFlightData } from '../simulation/orDataParser';
 import type { OrFlightDataResult } from '../simulation/orDataParser';
-import type { HazardZoneResult, InputTier, Motor, OpenRocketData, PrintInputSummary } from '../types';
+import type { HazardZoneResult, InputTier, Motor, OpenRocketData, PrintInputSummary, StageConfig } from '../types';
 
 interface Props {
   tier: InputTier;
@@ -20,6 +20,20 @@ interface Props {
 }
 
 type MotorInputMode = 'lookup' | 'rasp' | 'boxcar';
+
+interface PerStageState {
+  mass_lb: string;
+  motorDesig: string;
+  motorStatus: string;
+  resolvedMotor: Motor | null;
+  sepDelay_s: string;
+  tumble: boolean;
+}
+
+const defaultStage = (): PerStageState => ({
+  mass_lb: '', motorDesig: '', motorStatus: '', resolvedMotor: null,
+  sepDelay_s: '0', tumble: true,
+});
 
 const M_TO_FT = 3.28084;
 
@@ -54,6 +68,34 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
   const [nozzleDia, setNozzleDia] = useState('');    // inches
   const [numStages, setNumStages] = useState('1');
   const [numFins, setNumFins]     = useState('3');
+
+  // Multi-stage per-stage state
+  const [stageStates, setStageStates] = useState<PerStageState[]>([defaultStage(), defaultStage()]);
+  const updateStage = (idx: number, patch: Partial<PerStageState>) =>
+    setStageStates(prev => prev.map((s, i) => i === idx ? { ...s, ...patch } : s));
+  const handleNumStagesChange = (val: string) => {
+    const n = Math.min(4, Math.max(1, parseInt(val) || 1));
+    setNumStages(String(n));
+    setStageStates(prev => {
+      const next = [...prev];
+      while (next.length < n) next.push(defaultStage());
+      return next.slice(0, n);
+    });
+  };
+  const handleStageMotorLookup = async (idx: number) => {
+    const desig = stageStates[idx].motorDesig.trim();
+    if (!desig) return;
+    updateStage(idx, { motorStatus: 'Searching ThrustCurve.org...' });
+    try {
+      const motor = await lookupMotor(desig);
+      if (!motor) { updateStage(idx, { motorStatus: 'Not found.' }); return; }
+      const I = motor.thrustCurve.reduce((s, _p, i, a) =>
+        i === 0 ? 0 : s + 0.5 * (a[i].thrust + a[i-1].thrust) * (a[i].time - a[i-1].time), 0);
+      updateStage(idx, { resolvedMotor: motor, motorStatus: `Found: ${motor.name} — ${I.toFixed(0)} N·s` });
+    } catch {
+      updateStage(idx, { motorStatus: 'Lookup failed. Check internet connection.' });
+    }
+  };
 
   // Build quality
   const [buildQuality, setBuildQuality] = useState('1.0');
@@ -355,10 +397,13 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
 
     if (!d_in || d_in <= 0) { onError('Enter a valid body diameter.'); return; }
     if (!l_in || l_in <= 0) { onError('Enter a valid body length.'); return; }
-    if (!m_lb || m_lb <= 0) { onError('Enter a valid loaded weight.'); return; }
-    if (m_lb * 0.453592 < (resolvedMotor?.totalMassKg ?? 0)) {
-      onError('Total rocket weight must be at least as heavy as the motor.');
-      return;
+    const isMultiStage = (parseInt(numStages) || 1) > 1;
+    if (!isMultiStage) {
+      if (!m_lb || m_lb <= 0) { onError('Enter a valid loaded weight.'); return; }
+      if (m_lb * 0.453592 < (resolvedMotor?.totalMassKg ?? 0)) {
+        onError('Total rocket weight must be at least as heavy as the motor.');
+        return;
+      }
     }
 
     let motor: Motor | null = null;
@@ -390,12 +435,6 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
       motor = { ...motor, nozzleExitAreaM2: nozzleArea };
     }
 
-    const stages = parseInt(numStages) || 1;
-    if (stages > 1) {
-      onError('Multi-stage support coming in V2. For now, simulate each stage separately and use the largest hazard zone radius.');
-      return;
-    }
-
     const cg = cgIn ? parseFloat(cgIn) : undefined;
     const cp = cpIn ? parseFloat(cpIn) : undefined;
 
@@ -419,6 +458,7 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
             CD_base:          orFlightData.cdBase,
             CD_fins:          0, // OR doesn't separate fin drag in the export
             CD_nose_pressure: orFlightData.cdPressure,
+            CD_parasitic:     0, // not separately reported in OR CSV export
             CD_total:         orFlightData.representativeCd,
           };
         }
@@ -437,6 +477,8 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
           finTipChord_in:  ft,
           finSpan_in:      fs,
           numFins:         nf,
+          totalImpulse_Ns: motor ? totalImpulse(motor) : 0,
+          totalMass_kg:    m_lb * 0.453592,
         });
         cdOverride = bd.CD_total;
         barrowmanBreakdown = bd;
@@ -447,6 +489,52 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
     if (manualCdOverride) {
       const v = parseFloat(manualCdOverride);
       if (isFinite(v) && v > 0) cdOverride = v;
+    }
+
+    const stages = parseInt(numStages) || 1;
+    if (stages > 1) {
+      // Validate per-stage inputs
+      for (let i = 0; i < stages; i++) {
+        const s = stageStates[i];
+        const m = parseFloat(s.mass_lb);
+        if (!m || m <= 0) { onError(`Stage ${i + 1}: enter a valid hardware mass.`); return; }
+        if (!s.resolvedMotor) { onError(`Stage ${i + 1}: look up a motor first.`); return; }
+      }
+      const stageConfigs: StageConfig[] = stageStates.slice(0, stages).map(s => ({
+        motor: s.resolvedMotor!,
+        stageMass_lb: parseFloat(s.mass_lb),
+        separationDelay_s: parseFloat(s.sepDelay_s) || 0,
+        tumbleOnSeparation: s.tumble,
+      }));
+      onComputing();
+      setTimeout(() => {
+        try {
+          const result = computeMultiStageHazardZone({
+            stages: stageConfigs,
+            bodyDiameter_in: d_in,
+            bodyLength_in: l_in,
+            cdOverride,
+            buildQuality: (isTier3 && orFlightData) ? 1.0 : bq,
+            cg_in: cg,
+            cp_in: cp,
+            siteElevation_ft: elev,
+            siteTemp_F: temp,
+            surfaceWind_mph: w_mph,
+            maxLaunchAngle_deg: maxAng,
+            storeTrajectories: true,
+          });
+          onInputChange?.({
+            tier, siteElevation_ft: elev, maxWindSpeed_mph: w_mph,
+            maxLaunchAngle_deg: maxAng, diameter_in: d_in, length_in: l_in,
+            cdSource: isTier3 ? (orFlightData ? 'OR flight CSV (median pre-apogee)' : 'Barrowman component buildup') : (manualCdOverride ? '.ork file (min powered-flight CD)' : 'Fineness ratio estimate'),
+            buildQualityMultiplier: bq,
+          });
+          onResult(result);
+        } catch (err) {
+          onError('Simulation error: ' + String(err));
+        }
+      }, 10);
+      return;
     }
 
     onComputing();
@@ -524,6 +612,8 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
       finTipChord_in:  ft,
       finSpan_in:      fs,
       numFins:         nf,
+      totalImpulse_Ns: resolvedMotor ? totalImpulse(resolvedMotor) : 0,
+      totalMass_kg:    resolvedMotor && mass ? parseFloat(mass) * 0.453592 : 0,
     });
   })();
 
@@ -669,6 +759,85 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
 
       {/* ── Rocket Geometry ─────────────────────────────────────────────────── */}
       <Section title="Rocket Geometry">
+        {/* Number of stages — available for both Tier 2 and 3 */}
+        <div className="mb-4 flex items-center gap-4">
+          <Field label="Number of stages">
+            <select value={numStages} onChange={e => handleNumStagesChange(e.target.value)}
+              className="input-field w-32">
+              {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </Field>
+          {parseInt(numStages) > 1 && (
+            <p className="text-xs text-slate-400 mt-5">
+              Enter hardware mass (excluding motor) and motor for each stage.
+            </p>
+          )}
+        </div>
+
+        {/* Per-stage panels — shown when numStages > 1 */}
+        {parseInt(numStages) > 1 && (
+          <div className="space-y-4 mb-4">
+            {stageStates.slice(0, parseInt(numStages)).map((s, idx) => {
+              const isLast = idx === parseInt(numStages) - 1;
+              const label = parseInt(numStages) === 2
+                ? (idx === 0 ? 'Stage 1 — Booster' : 'Stage 2 — Sustainer')
+                : idx === 0 ? 'Stage 1 — Booster'
+                : isLast ? `Stage ${idx + 1} — Sustainer`
+                : `Stage ${idx + 1}`;
+              return (
+                <div key={idx} className="rounded-lg border border-slate-600 bg-slate-700/30 p-4 space-y-3">
+                  <p className="text-xs font-semibold text-slate-200 uppercase tracking-widest">{label}</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field label="Hardware mass (lbs)">
+                      <input type="number" min="0.01" step="any"
+                        value={s.mass_lb} onChange={e => updateStage(idx, { mass_lb: e.target.value })}
+                        placeholder="e.g. 2.5" className="input-field" />
+                      <Help>Structural mass of this stage only — exclude motor weight.</Help>
+                    </Field>
+                    <div>
+                      <div className="flex gap-2 items-end">
+                        <Field label="Motor designation" className="flex-1">
+                          <input type="text" value={s.motorDesig}
+                            onChange={e => updateStage(idx, { motorDesig: e.target.value })}
+                            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleStageMotorLookup(idx))}
+                            placeholder="e.g. H148R" className="input-field" />
+                        </Field>
+                        <button type="button" onClick={() => handleStageMotorLookup(idx)}
+                          className="px-3 py-2 rounded-lg bg-slate-600 hover:bg-slate-500 text-sm text-white transition-colors self-end">
+                          Search
+                        </button>
+                      </div>
+                      {s.motorStatus && (
+                        <p className={`mt-1 text-xs ${s.resolvedMotor ? 'text-green-400' : 'text-slate-400'}`}>
+                          {s.motorStatus}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {!isLast && (
+                    <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-600/60">
+                      <Field label="Separation delay (s)">
+                        <input type="number" min="0" max="10" step="0.1"
+                          value={s.sepDelay_s} onChange={e => updateStage(idx, { sepDelay_s: e.target.value })}
+                          placeholder="0" className="input-field" />
+                        <Help>Coast time after burnout before stage separates.</Help>
+                      </Field>
+                      <div className="flex items-center gap-2 mt-6">
+                        <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
+                          <input type="checkbox" checked={s.tumble}
+                            onChange={e => updateStage(idx, { tumble: e.target.checked })}
+                            className="accent-blue-500" />
+                          Tumble on separation (2× CD)
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         <div className="grid grid-cols-3 gap-4">
           <Field label="Body diameter (in)">
             <input type="number" min="0.1" max="24" step="any"
@@ -771,12 +940,6 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
                   placeholder="e.g. 1.5" className="input-field" />
                 <Help>Enables altitude-corrected thrust. At high altitude, lower ambient pressure increases effective thrust.</Help>
               </Field>
-              <Field label="Number of stages">
-                <input type="number" min="1" max="4" step="1"
-                  value={numStages} onChange={e => setNumStages(e.target.value)}
-                  placeholder="1" className="input-field" />
-                <Help>Single-stage only supported. For multi-stage, simulate each stage separately and use the largest hazard zone.</Help>
-              </Field>
             </div>
 
             {/* Live Barrowman CD breakdown */}
@@ -796,6 +959,8 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
                   <span className="text-slate-200">{liveBarrowman.CD_fins.toFixed(3)}</span>
                   <span className="text-slate-400">Nose pressure</span>
                   <span className="text-slate-200">{liveBarrowman.CD_nose_pressure.toFixed(3)}</span>
+                  <span className="text-slate-400">Parasitic (lugs, roughness)</span>
+                  <span className="text-slate-200">{liveBarrowman.CD_parasitic.toFixed(3)}</span>
                   <span className="text-slate-300 font-medium pt-1">Base CD total</span>
                   <span className="text-slate-100 font-medium pt-1">{liveBarrowman.CD_total.toFixed(3)}</span>
                   <span className="text-slate-300 font-medium">Effective CD (×{buildQuality})</span>
@@ -924,8 +1089,8 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
         </div>
       </Section>
 
-      {/* ── Motor ───────────────────────────────────────────────────────────── */}
-      <Section title="Motor">
+      {/* ── Motor — hidden for multi-stage (motors entered in stage panels above) */}
+      {parseInt(numStages) <= 1 && <Section title="Motor">
         <div className="flex gap-2 mb-4 flex-wrap">
           {(['lookup', 'rasp', 'boxcar'] as MotorInputMode[]).map(m => (
             <button key={m} type="button"
@@ -1009,7 +1174,7 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
             </div>
           </>
         )}
-      </Section>
+      </Section>}
 
       {/* Save / Load config */}
       <div className="flex gap-3 items-center flex-wrap">

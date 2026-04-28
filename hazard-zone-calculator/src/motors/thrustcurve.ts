@@ -97,5 +97,17 @@ export async function lookupMotor(
 ): Promise<Motor | null> {
   const results = await searchMotors({ designation, manufacturer, availability: 'all' });
   if (results.length === 0) return null;
-  return downloadMotor(results[0].motorId);
+
+  const motor = await downloadMotor(results[0].motorId);
+  if (!motor) return null;
+
+  // downloads[0].motor can be an empty object {} for some motors (e.g. O5500X-PS).
+  // The search result always has propWeightG / totalWeightG populated, so fill in the gaps.
+  const sr = results[0];
+  if (motor.propellantMassKg === 0 && (sr.propWeightG ?? 0) > 0)
+    motor.propellantMassKg = sr.propWeightG / 1000;
+  if (motor.totalMassKg === 0 && (sr.totalWeightG ?? 0) > 0)
+    motor.totalMassKg = sr.totalWeightG / 1000;
+
+  return motor;
 }

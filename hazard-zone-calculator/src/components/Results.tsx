@@ -239,6 +239,8 @@ export function Results({ result, launchCoords, windBearing, onPrint }: Props) {
             <span className="text-white tabular-nums">{r.barrowmanBreakdown.CD_fins.toFixed(4)}</span>
             <span className="text-slate-400">Nose pressure drag</span>
             <span className="text-white tabular-nums">{r.barrowmanBreakdown.CD_nose_pressure.toFixed(4)}</span>
+            <span className="text-slate-400">Parasitic (lugs, roughness)</span>
+            <span className="text-white tabular-nums">{r.barrowmanBreakdown.CD_parasitic.toFixed(4)}</span>
             <span className="text-slate-300 font-medium border-t border-slate-700 pt-2">Total Barrowman CD</span>
             <span className="text-blue-300 font-bold tabular-nums border-t border-slate-700 pt-2">
               {r.barrowmanBreakdown.CD_total.toFixed(4)}
@@ -275,6 +277,31 @@ export function Results({ result, launchCoords, windBearing, onPrint }: Props) {
           secondary={r.totalImpulse_Ns > 0 ? `${r.totalImpulse_Ns.toFixed(0)} N\u00b7s total impulse` : 'Use Tier 2/3 for motor details'}
         />
       </div>
+
+      {/* Multi-stage: per-stage impact ranges */}
+      {r.stageImpacts && r.stageImpacts.length > 1 && (
+        <div className="rounded-xl border border-slate-700 bg-slate-800/40 px-5 py-4">
+          <p className="text-sm font-medium text-slate-200 mb-3">Per-Stage Impact Ranges</p>
+          <div className="space-y-2">
+            {r.stageImpacts.map(si => {
+              const isGoverning = si.range_ft === Math.max(...r.stageImpacts!.map(x => x.range_ft));
+              return (
+                <div key={si.stage} className={`flex justify-between items-center rounded-lg px-4 py-2 ${
+                  isGoverning ? 'bg-blue-600/15 border border-blue-600/40' : 'bg-slate-700/30'}`}>
+                  <span className="text-sm text-slate-300">{si.label}</span>
+                  <div className="text-right">
+                    <span className={`text-sm font-bold tabular-nums ${isGoverning ? 'text-blue-300' : 'text-slate-200'}`}>
+                      {si.range_ft.toFixed(0)} ft
+                    </span>
+                    <span className="text-xs text-slate-500 ml-2">{si.range_m.toFixed(0)} m</span>
+                    {isGoverning && <span className="ml-2 text-xs text-blue-400">governing</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 1/4 rule comparison */}
       <div className={`rounded-xl border px-5 py-4 ${

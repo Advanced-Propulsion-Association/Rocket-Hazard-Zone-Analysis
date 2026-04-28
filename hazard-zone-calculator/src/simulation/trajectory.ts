@@ -16,7 +16,7 @@
 import { G0, airDensity, speedOfSound, isaTemperatureOffset, isaPressure } from './atmosphere';
 import { cdFromFineness, cdMachCorrection, motorClass } from './aerodynamics';
 import { thrustAt, totalImpulse, burnTime } from './motor';
-import type { Motor, TrajectoryPoint, HazardZoneResult } from '../types';
+import type { Motor, TrajectoryPoint, HazardZoneResult, StageConfig } from '../types';
 
 const IN_TO_M = 0.0254;
 const LB_TO_KG = 0.453592;
@@ -29,11 +29,17 @@ export interface SimConfig {
   totalMass_kg: number;
   motor: Motor;
   cdOverride?: number;
-  launchAngle_deg: number;      // from vertical
+  launchAngle_deg: number;      // from vertical — determines initial velocity direction
   siteElevation_m: number;
   siteTemp_K: number;
   surfaceWind_ms: number;       // headwind speed
   initialZ_m?: number;          // starting altitude AGL (default 0 = ground launch)
+  // Multi-stage continuation fields
+  initialX_m?: number;          // starting downrange position (default 0)
+  initialVx_ms?: number;        // override starting horizontal velocity
+  initialVz_ms?: number;        // override starting vertical velocity
+  stopAtTime?: number;          // stop simulation at this elapsed time (stage separation)
+  thrustAngle_deg?: number;     // thrust axis angle from vertical (default = launchAngle_deg)
 }
 
 // ─── Single trajectory simulation ──────────────────────────────────────────
@@ -42,14 +48,16 @@ export function simulate(config: SimConfig, dtMax = 0.05): TrajectoryPoint[] {
   const motor = config.motor;
   const I_total = totalImpulse(motor);
   const mp = motor.propellantMassKg;
-  void burnTime; // burn time used only in termination logic
+  void burnTime;
 
   const siteElev = config.siteElevation_m;
   const tOffset = isaTemperatureOffset(siteElev, config.siteTemp_K);
 
   const alphaRad = (config.launchAngle_deg * Math.PI) / 180;
-  const sinA = Math.sin(alphaRad);
-  const cosA = Math.cos(alphaRad);
+  // thrustAngle_deg overrides the thrust axis (used for mid-flight stage ignition)
+  const thrustRad = ((config.thrustAngle_deg ?? config.launchAngle_deg) * Math.PI) / 180;
+  const sinA = Math.sin(thrustRad);
+  const cosA = Math.cos(thrustRad);
 
   const refArea = Math.PI * Math.pow(config.bodyDiameter_m / 2, 2);
   const fineness = config.bodyLength_m / config.bodyDiameter_m;
@@ -58,7 +66,11 @@ export function simulate(config: SimConfig, dtMax = 0.05): TrajectoryPoint[] {
 
   // State: [x, z, vx, vz, m]
   const z0 = config.initialZ_m ?? 0;
-  let x = 0, z = z0, vx = sinA * 0.5, vz = cosA * 0.5, m = config.totalMass_kg;
+  let x  = config.initialX_m  ?? 0;
+  let z  = z0;
+  let vx = config.initialVx_ms ?? Math.sin(alphaRad) * 0.5;
+  let vz = config.initialVz_ms ?? Math.cos(alphaRad) * 0.5;
+  let m  = config.totalMass_kg;
 
   const points: TrajectoryPoint[] = [];
   let t = 0;
@@ -103,6 +115,8 @@ export function simulate(config: SimConfig, dtMax = 0.05): TrajectoryPoint[] {
   while (t < maxTime) {
     if (z > 5) wasAboveGround = true;
     if (wasAboveGround && z < -1.0) break;
+    // Stop at stage separation time
+    if (config.stopAtTime != null && t >= config.stopAtTime) break;
     // Safety: if rocket never leaves the ground (zero-thrust motor), bail early
     if (!wasAboveGround && t > 30) break;
 
@@ -259,6 +273,13 @@ export function computeHazardZone(input: HazardZoneInput): HazardZoneResult {
   const maxApogee_m = Math.max(...vertPts.map(p => p.z));
   const quarterRule_m = maxApogee_m / 4;
 
+  // FAA 14 CFR §101.25 minimum standoff distance
+  const FAA_FLOOR_M = 1500 / M_TO_FT;
+  if (maxRange_m < FAA_FLOOR_M) {
+    warnings.push('Physics hazard radius is below the FAA minimum 1,500 ft standoff (14 CFR §101.25) — reporting 1,500 ft.');
+    maxRange_m = FAA_FLOOR_M;
+  }
+
   return {
     hazardRadius_m:           maxRange_m,
     hazardRadius_ft:          maxRange_m * M_TO_FT,
@@ -338,7 +359,8 @@ export function computeTier1HazardZone(
   const maxAscentOffset_m = apogee_m * Math.tan(20 * Math.PI / 180) * 0.4;
   const physicsRange_m    = descentRange_m + maxAscentOffset_m;
   const quarterRule_m     = apogee_m / 4;
-  const hazardRadius_m    = Math.max(physicsRange_m, quarterRule_m);
+  const FAA_FLOOR_M       = 1500 / M_TO_FT;
+  const hazardRadius_m    = Math.max(physicsRange_m, quarterRule_m, FAA_FLOOR_M);
 
   // Build a sweep of shifted descent trajectories — one per launch angle.
   // Each trajectory has the same descent shape but starts at a different
@@ -358,6 +380,9 @@ export function computeTier1HazardZone(
   if (apogee_ft > 60000) {
     warnings.push('Launch above 60,000 ft — requires FAA launch license (14 CFR Part 450).');
   }
+  if (Math.max(physicsRange_m, quarterRule_m) < FAA_FLOOR_M) {
+    warnings.push('Physics hazard radius is below the FAA minimum 1,500 ft standoff (14 CFR §101.25) — reporting 1,500 ft.');
+  }
 
   return {
     hazardRadius_m,
@@ -374,5 +399,192 @@ export function computeTier1HazardZone(
     tier1DescentRange_m:     descentRange_m,
     tier1AscentOffset_m:     maxAscentOffset_m,
     cdEffective:             cd ?? 0.50,
+  };
+}
+
+// ─── Multi-stage hazard zone ─────────────────────────────────────────────────
+
+export interface MultiStageHazardZoneInput {
+  stages: StageConfig[];        // stages[0] = booster, stages[N-1] = sustainer
+  bodyDiameter_in: number;
+  bodyLength_in: number;
+  cdOverride?: number;
+  buildQuality?: number;
+  cg_in?: number;
+  cp_in?: number;
+  siteElevation_ft: number;
+  siteTemp_F: number;
+  surfaceWind_mph: number;
+  maxLaunchAngle_deg?: number;
+  storeTrajectories?: boolean;
+}
+
+function stageLabel(idx: number, total: number): string {
+  if (total === 2) return idx === 0 ? 'Stage 1 — Booster' : 'Stage 2 — Sustainer';
+  if (idx === 0) return 'Stage 1 — Booster';
+  if (idx === total - 1) return `Stage ${idx + 1} — Sustainer`;
+  return `Stage ${idx + 1}`;
+}
+
+export function computeMultiStageHazardZone(input: MultiStageHazardZoneInput): HazardZoneResult {
+  const diameter_m = input.bodyDiameter_in * IN_TO_M;
+  const length_m   = input.bodyLength_in * IN_TO_M;
+  const siteElev_m = input.siteElevation_ft / M_TO_FT;
+  const siteTemp_K = (input.siteTemp_F - 32) * 5 / 9 + 273.15;
+  const wind_ms    = input.surfaceWind_mph * MPH_TO_MS;
+
+  const warnings: string[] = [];
+  const maxAngleDeg = Math.min(input.maxLaunchAngle_deg ?? 20, 20);
+
+  const FR = length_m / diameter_m;
+  const stabResult = stabilityCorrection(input.cg_in, input.cp_in, input.bodyDiameter_in);
+  const baseCd = (input.cdOverride ?? cdFromFineness(FR)) * (input.buildQuality ?? 1.0);
+  let effectiveCd = baseCd;
+  if (stabResult && stabResult.multiplier !== 1.0) {
+    effectiveCd = baseCd * stabResult.multiplier;
+    warnings.push(stabResult.category === 'marginal'
+      ? `Marginal stability (${stabResult.margin_cal.toFixed(2)} cal) — CD increased ×1.5.`
+      : `Unstable rocket (${stabResult.margin_cal.toFixed(2)} cal) — CD increased ×2.0.`);
+  }
+
+  const totalI = input.stages.reduce((s, st) => s + totalImpulse(st.motor), 0);
+  const mClass = motorClass(totalI);
+  if (totalI > 10240) warnings.push('Total impulse class M or above — additional FAA notification required.');
+  if (input.surfaceWind_mph > 20) warnings.push('Wind exceeds NAR/Tripoli 20 MPH launch limit.');
+
+  const sweepAngles: number[] = [];
+  for (let a = 0; a <= maxAngleDeg; a += 2) sweepAngles.push(a);
+  if (maxAngleDeg % 2 !== 0) sweepAngles.push(maxAngleDeg);
+
+  const coastMotor = (mass_kg: number): Motor => ({
+    name: 'Coast', diameterMm: 0, lengthMm: 0,
+    propellantMassKg: 0, totalMassKg: mass_kg,
+    manufacturer: '', thrustCurve: [],
+  });
+
+  let maxRange_m = 0, bestAngle = 0, maxApogee_m = 0;
+  const stageMaxRanges: number[] = input.stages.map(() => 0);
+  const combinedTrajectories: Record<number, TrajectoryPoint[]> = {};
+
+  for (const angleDeg of sweepAngles) {
+    const perStageRanges: number[] = input.stages.map(() => 0);
+
+    // Combined vehicle mass at launch
+    const launchMass_kg = input.stages.reduce(
+      (sum, s) => sum + s.stageMass_lb * LB_TO_KG + s.motor.totalMassKg, 0);
+
+    // ── S1 burn → separation ──────────────────────────────────────────────────
+    const s1BurnTime  = burnTime(input.stages[0].motor);
+    const s1StopTime  = s1BurnTime + (input.stages[0].separationDelay_s ?? 0);
+    const s1Pts = simulate({
+      bodyDiameter_m: diameter_m, bodyLength_m: length_m,
+      totalMass_kg: launchMass_kg, motor: input.stages[0].motor,
+      cdOverride: baseCd,          // no stability penalty on powered ascent
+      launchAngle_deg: angleDeg,
+      siteElevation_m: siteElev_m, siteTemp_K, surfaceWind_ms: wind_ms,
+      stopAtTime: s1StopTime,
+    });
+    const sep = s1Pts[s1Pts.length - 1];
+
+    // ── S1 booster tumbling ballistic ─────────────────────────────────────────
+    const s1DryMass_kg = input.stages[0].stageMass_lb * LB_TO_KG
+      + (input.stages[0].motor.totalMassKg - input.stages[0].motor.propellantMassKg);
+    const boosterCd   = (input.stages[0].tumbleOnSeparation ?? true) ? effectiveCd * 2.0 : effectiveCd;
+    const boosterPts  = simulate({
+      bodyDiameter_m: diameter_m, bodyLength_m: length_m,
+      totalMass_kg: s1DryMass_kg, motor: coastMotor(s1DryMass_kg),
+      cdOverride: boosterCd, launchAngle_deg: 0,
+      siteElevation_m: siteElev_m, siteTemp_K, surfaceWind_ms: wind_ms,
+      initialX_m: sep.x, initialZ_m: sep.z,
+      initialVx_ms: sep.vx, initialVz_ms: sep.vz,
+    });
+    perStageRanges[0] = Math.abs(boosterPts[boosterPts.length - 1].x);
+
+    // ── Upper stages ──────────────────────────────────────────────────────────
+    let prevSep = sep;
+    let upperPts: TrajectoryPoint[] = [...s1Pts];
+
+    for (let i = 1; i < input.stages.length; i++) {
+      const stage   = input.stages[i];
+      const isLast  = i === input.stages.length - 1;
+      const upperMass = input.stages.slice(i).reduce(
+        (sum, s) => sum + s.stageMass_lb * LB_TO_KG + s.motor.totalMassKg, 0);
+      const thrustAngle = Math.atan2(prevSep.vx, prevSep.vz) * 180 / Math.PI;
+      const stageStopTime = isLast ? undefined
+        : burnTime(stage.motor) + (stage.separationDelay_s ?? 0);
+
+      const stagePts = simulate({
+        bodyDiameter_m: diameter_m, bodyLength_m: length_m,
+        totalMass_kg: upperMass, motor: stage.motor,
+        cdOverride: baseCd, launchAngle_deg: 0, thrustAngle_deg: thrustAngle,
+        siteElevation_m: siteElev_m, siteTemp_K, surfaceWind_ms: wind_ms,
+        initialX_m: prevSep.x, initialZ_m: Math.max(prevSep.z, 1),
+        initialVx_ms: prevSep.vx, initialVz_ms: prevSep.vz,
+        stopAtTime: stageStopTime,
+      });
+      upperPts = [...upperPts, ...stagePts];
+
+      if (isLast) {
+        perStageRanges[i] = Math.abs(stagePts[stagePts.length - 1].x);
+        const apogee = Math.max(...stagePts.map(p => p.z));
+        if (apogee > maxApogee_m) maxApogee_m = apogee;
+      } else {
+        // intermediate stage tumbles after separation
+        prevSep = stagePts[stagePts.length - 1];
+        const intermDryMass = stage.stageMass_lb * LB_TO_KG
+          + (stage.motor.totalMassKg - stage.motor.propellantMassKg);
+        const intermCd = (stage.tumbleOnSeparation ?? true) ? effectiveCd * 2.0 : effectiveCd;
+        const intermPts = simulate({
+          bodyDiameter_m: diameter_m, bodyLength_m: length_m,
+          totalMass_kg: intermDryMass, motor: coastMotor(intermDryMass),
+          cdOverride: intermCd, launchAngle_deg: 0,
+          siteElevation_m: siteElev_m, siteTemp_K, surfaceWind_ms: wind_ms,
+          initialX_m: prevSep.x, initialZ_m: prevSep.z,
+          initialVx_ms: prevSep.vx, initialVz_ms: prevSep.vz,
+        });
+        perStageRanges[i] = Math.abs(intermPts[intermPts.length - 1].x);
+      }
+    }
+
+    // Update global per-stage maxes and overall best angle
+    const angleMax = Math.max(...perStageRanges);
+    for (let i = 0; i < input.stages.length; i++) {
+      if (perStageRanges[i] > stageMaxRanges[i]) stageMaxRanges[i] = perStageRanges[i];
+    }
+    if (angleMax > maxRange_m) { maxRange_m = angleMax; bestAngle = angleDeg; }
+    if (input.storeTrajectories) combinedTrajectories[angleDeg] = upperPts;
+  }
+
+  const quarterRule_m = maxApogee_m / 4;
+
+  // FAA 14 CFR §101.25 minimum standoff distance
+  const FAA_FLOOR_M = 1500 / M_TO_FT;
+  if (maxRange_m < FAA_FLOOR_M) {
+    warnings.push('Physics hazard radius is below the FAA minimum 1,500 ft standoff (14 CFR §101.25) — reporting 1,500 ft.');
+    maxRange_m = FAA_FLOOR_M;
+  }
+
+  return {
+    hazardRadius_m:          maxRange_m,
+    hazardRadius_ft:         maxRange_m * M_TO_FT,
+    optimalAngle_deg:        bestAngle,
+    maxApogee_m,
+    maxApogee_ft:            maxApogee_m * M_TO_FT,
+    motorClass:              mClass,
+    totalImpulse_Ns:         totalI,
+    quarterAltitudeRule_m:   quarterRule_m,
+    quarterRuleConservative: quarterRule_m >= maxRange_m,
+    trajectories: input.storeTrajectories ? combinedTrajectories : undefined,
+    warnings,
+    stabilityMargin_cal: stabResult?.margin_cal,
+    cdMultiplier:        stabResult?.multiplier,
+    cdEffective:         effectiveCd,
+    stabilityCategory:   stabResult?.category,
+    stageImpacts: input.stages.map((_, i) => ({
+      stage:   i + 1,
+      label:   stageLabel(i, input.stages.length),
+      range_m: stageMaxRanges[i],
+      range_ft: stageMaxRanges[i] * M_TO_FT,
+    })),
   };
 }

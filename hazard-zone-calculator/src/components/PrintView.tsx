@@ -416,6 +416,7 @@ export function PrintView({ result, launchCoords, inputSummary, mapSnapshotUrl }
                   ['Base drag', r.barrowmanBreakdown.CD_base.toFixed(4)],
                   ['Fin drag', r.barrowmanBreakdown.CD_fins.toFixed(4)],
                   ['Nose pressure drag', r.barrowmanBreakdown.CD_nose_pressure.toFixed(4)],
+                  ['Parasitic (lugs, roughness)', r.barrowmanBreakdown.CD_parasitic.toFixed(4)],
                 ].map(([label, val], i) => (
                   <tr key={label} style={{ background: i % 2 === 0 ? '#f8fafc' : '#fff' }}>
                     <td style={{ padding: '3px 8px', color: '#555' }}>{label}</td>
