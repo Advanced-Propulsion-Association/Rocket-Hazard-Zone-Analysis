@@ -1,0 +1,136 @@
+/*
+ * PDF output stylesheet for FAA Hazard Zone Calculator docs.
+ * Edit these values to adjust spacing, fonts, and page layout.
+ * After editing, re-run: bash docs/pdf/build.sh
+ */
+
+/* ── Page layout ─────────────────────────────────────────────────── */
+@page {
+  margin: 1in;          /* Change to e.g. 0.75in for tighter margins  */
+  /* Blank header/footer strings suppress browser-printed URL + time  */
+  @top-center    { content: ""; }
+  @bottom-center { content: ""; }
+}
+
+body {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 11pt;
+  line-height: 1.55;
+  color: #111;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+/* ── Headings ────────────────────────────────────────────────────── */
+h1 {
+  font-size: 20pt;
+  margin-top: 0;
+  margin-bottom: 0.4em;
+  border-bottom: 2px solid #333;
+  padding-bottom: 0.2em;
+}
+
+h2 {
+  font-size: 15pt;
+  margin-top: 2em;      /* Space ABOVE each major section — increase to add more */
+  margin-bottom: 0.5em;
+  border-bottom: 1px solid #aaa;
+  padding-bottom: 0.15em;
+}
+
+h3 {
+  font-size: 12pt;
+  margin-top: 1.4em;    /* Space above subsection headings */
+  margin-bottom: 0.4em;
+}
+
+h4 {
+  font-size: 11pt;
+  margin-top: 1.2em;
+  margin-bottom: 0.3em;
+}
+
+/* ── Paragraphs and lists ────────────────────────────────────────── */
+p {
+  margin-top: 0.4em;
+  margin-bottom: 0.6em;
+}
+
+ul, ol {
+  margin-top: 0.3em;
+  margin-bottom: 0.6em;
+  padding-left: 1.8em;
+}
+
+li {
+  margin-bottom: 0.25em;
+}
+
+/* ── Tables ──────────────────────────────────────────────────────── */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  font-size: 10pt;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  padding: 0.4em 0.7em;
+  text-align: left;
+}
+
+th {
+  background: #f0f0f0;
+  font-weight: bold;
+}
+
+/* ── Code blocks ─────────────────────────────────────────────────── */
+pre {
+  background: #f6f6f6;
+  border: 1px solid #ddd;
+  border-left: 3px solid #888;
+  padding: 0.7em 1em;
+  font-size: 9.5pt;
+  overflow-x: auto;
+  margin: 0.8em 0;
+  line-height: 1.45;
+}
+
+code {
+  font-size: 9.5pt;
+  background: #f3f3f3;
+  padding: 0.1em 0.3em;
+  border-radius: 2px;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+}
+
+/* ── Table of contents ───────────────────────────────────────────── */
+nav#TOC {
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  padding: 1em 1.5em;
+  margin-bottom: 2em;
+  font-size: 10pt;
+}
+
+nav#TOC ul {
+  margin: 0.3em 0;
+}
+
+/* ── Print-specific ──────────────────────────────────────────────── */
+@media print {
+  /* Force page break before each top-level section */
+  h2 { page-break-before: always; }
+  h2:first-of-type { page-break-before: avoid; }
+
+  /* Keep headings with following content */
+  h2, h3, h4 { page-break-after: avoid; }
+
+  /* Don't break inside tables or code blocks */
+  table, pre { page-break-inside: avoid; }
+}
