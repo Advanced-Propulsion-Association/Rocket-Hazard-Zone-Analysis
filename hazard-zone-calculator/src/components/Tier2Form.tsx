@@ -568,6 +568,7 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
             siteTemp_F: temp,
             surfaceWind_mph: w_mph,
             maxLaunchAngle_deg: maxAng,
+            noseconeType: noseType,
             storeTrajectories: true,
           });
           onInputChange?.({
@@ -600,6 +601,7 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
           maxLaunchAngle_deg: maxAng,
           buildQuality:      (isTier3 && orFlightData) || !!manualCdOverride ? 1.0 : bq,
           cdOverride,
+          noseconeType:      noseType,
           storeTrajectories: true,
         });
         // Determine CD source label for print summary
