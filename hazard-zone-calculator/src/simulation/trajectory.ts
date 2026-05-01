@@ -14,7 +14,7 @@
  */
 
 import { G0, airDensity, speedOfSound, isaTemperatureOffset, isaPressure } from './atmosphere';
-import { cdFromFineness, cdMachCorrection, motorClass } from './aerodynamics';
+import { cdFromFineness, cdMachCorrection, cdMachCorrectionOgive, motorClass } from './aerodynamics';
 import { thrustAt, totalImpulse, burnTime } from './motor';
 import type { Motor, TrajectoryPoint, HazardZoneResult, StageConfig } from '../types';
 
@@ -40,6 +40,7 @@ export interface SimConfig {
   initialVz_ms?: number;        // override starting vertical velocity
   stopAtTime?: number;          // stop simulation at this elapsed time (stage separation)
   thrustAngle_deg?: number;     // thrust axis angle from vertical (default = launchAngle_deg)
+  noseconeType?: string;
 }
 
 // ─── Single trajectory simulation ──────────────────────────────────────────
@@ -94,7 +95,9 @@ export function simulate(config: SimConfig, dtMax = 0.05): TrajectoryPoint[] {
     if (vRel > 0.1) {
       const aSnd = speedOfSound(absZ, tOffset);
       const mach = vRel / aSnd;
-      const cd = cdMachCorrection(cdSub, mach);
+      const cd = (config.noseconeType === 'ogive')
+        ? cdMachCorrectionOgive(cdSub, mach)
+        : cdMachCorrection(cdSub, mach);
       const rho = airDensity(absZ, tOffset);
       const D = 0.5 * rho * vRel * vRel * refArea * cd;
       dragX = -D * vxRel / vRel;
@@ -128,7 +131,9 @@ export function simulate(config: SimConfig, dtMax = 0.05): TrajectoryPoint[] {
       const vRel = Math.sqrt(vxRel * vxRel + vz * vz);
       const aSnd = speedOfSound(absZ, tOffset);
       const mach = vRel / (aSnd || 1);
-      const cd = cdMachCorrection(cdSub, mach);
+      const cd = (config.noseconeType === 'ogive')
+        ? cdMachCorrectionOgive(cdSub, mach)
+        : cdMachCorrection(cdSub, mach);
       const rho = airDensity(absZ, tOffset);
       const D = 0.5 * rho * vRel * vRel * refArea * cd;
       points.push({ t, x, z, vx, vz, mass: m, mach, thrust: T, drag: D });
@@ -184,6 +189,7 @@ export interface HazardZoneInput {
   surfaceWind_mph: number;
   maxLaunchAngle_deg?: number;  // site-restricted angle cap, defaults to 20 (NAR/Tripoli)
   storeTrajectories?: boolean;
+  noseconeType?: string;
 }
 
 export function computeHazardZone(input: HazardZoneInput): HazardZoneResult {
@@ -239,6 +245,7 @@ export function computeHazardZone(input: HazardZoneInput): HazardZoneResult {
       siteElevation_m: siteElev_m,
       siteTemp_K,
       surfaceWind_ms:  wind_ms,
+      noseconeType:    input.noseconeType,
     };
 
     const pts = simulate(cfg);
@@ -268,6 +275,7 @@ export function computeHazardZone(input: HazardZoneInput): HazardZoneResult {
     siteElevation_m: siteElev_m,
     siteTemp_K,
     surfaceWind_ms: 0,
+    noseconeType:   input.noseconeType,
   };
   const vertPts = simulate(vertCfg);
   const maxApogee_m = Math.max(...vertPts.map(p => p.z));
@@ -417,6 +425,7 @@ export interface MultiStageHazardZoneInput {
   surfaceWind_mph: number;
   maxLaunchAngle_deg?: number;
   storeTrajectories?: boolean;
+  noseconeType?: string;
 }
 
 function stageLabel(idx: number, total: number): string {
@@ -492,6 +501,7 @@ export function computeMultiStageHazardZone(input: MultiStageHazardZoneInput): H
       launchAngle_deg: angleDeg,
       siteElevation_m: siteElev_m, siteTemp_K, surfaceWind_ms: wind_ms,
       stopAtTime: s1StopTime,
+      noseconeType: input.noseconeType,
     });
     const sep = s1Pts[s1Pts.length - 1];
 
@@ -506,6 +516,7 @@ export function computeMultiStageHazardZone(input: MultiStageHazardZoneInput): H
       siteElevation_m: siteElev_m, siteTemp_K, surfaceWind_ms: wind_ms,
       initialX_m: sep.x, initialZ_m: sep.z,
       initialVx_ms: sep.vx, initialVz_ms: sep.vz,
+      noseconeType: input.noseconeType,
     });
     perStageRanges[0] = Math.abs(boosterPts[boosterPts.length - 1].x);
 
@@ -530,6 +541,7 @@ export function computeMultiStageHazardZone(input: MultiStageHazardZoneInput): H
         initialX_m: prevSep.x, initialZ_m: Math.max(prevSep.z, 1),
         initialVx_ms: prevSep.vx, initialVz_ms: prevSep.vz,
         stopAtTime: stageStopTime,
+        noseconeType: input.noseconeType,
       });
       upperPts = [...upperPts, ...stagePts];
 
@@ -550,6 +562,7 @@ export function computeMultiStageHazardZone(input: MultiStageHazardZoneInput): H
           siteElevation_m: siteElev_m, siteTemp_K, surfaceWind_ms: wind_ms,
           initialX_m: prevSep.x, initialZ_m: prevSep.z,
           initialVx_ms: prevSep.vx, initialVz_ms: prevSep.vz,
+          noseconeType: input.noseconeType,
         });
         perStageRanges[i] = Math.abs(intermPts[intermPts.length - 1].x);
       }
