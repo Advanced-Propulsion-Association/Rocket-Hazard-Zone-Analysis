@@ -151,6 +151,13 @@ export interface OpenRocketData {
   cpFromNose_in?: number;
   numStagesDetected?: number;  // count of <stage> elements in the .ork file
   stageData?: Array<{ cdOverride?: number }>; // per-stage overrides; index 0 = booster (firing order)
+  stageFinData?: Array<{
+    finRootChord_in: number;
+    finTipChord_in: number;
+    finSpan_in: number;
+    finSweep_in?: number;
+    numFins: number;
+  }>; // per-stage fin geometry; index 0 = booster (same convention as stageData)
   motorDesignation?: string;
   motorManufacturer?: string;
   maxApogee_m?: number;

@@ -197,6 +197,59 @@ export async function parseOrkFile(buffer: ArrayBuffer, clipAtApogee = true): Pr
   const stageDataRaw = [...stageEls].reverse().map(el => ({ cdOverride: getStageCdOverride(el) }));
   const stageData = stageDataRaw.some(s => s.cdOverride != null) ? stageDataRaw : undefined;
 
+  // ── Per-stage fin geometry ────────────────────────────────────────────────────
+  // Extract first finset found within each stage element, then reverse to match
+  // stageData convention (index 0 = booster). Only populated if fins found.
+  function extractStageFinData(stageEl: Element): {
+    finRootChord_in: number; finTipChord_in: number; finSpan_in: number;
+    finSweep_in?: number; numFins: number;
+  } | null {
+    const trapEl  = stageEl.getElementsByTagName('trapezoidfinset')[0] ?? null;
+    const ellipEl = stageEl.getElementsByTagName('ellipticalfinset')[0] ?? null;
+    const freeEl  = stageEl.getElementsByTagName('freeformfinset')[0] ?? null;
+
+    let root_m = 0, tip_m = 0, span_m = 0, sweep_m = 0, count = 3;
+    if (trapEl) {
+      root_m  = getNum(trapEl, 'rootchord');
+      tip_m   = getNum(trapEl, 'tipchord');
+      span_m  = getNum(trapEl, 'height');
+      sweep_m = getNum(trapEl, 'sweeplength');
+      const n = parseInt(trapEl.getElementsByTagName('fincount')[0]?.textContent ?? '3', 10);
+      count = isFinite(n) && n > 0 ? n : 3;
+    } else if (ellipEl) {
+      root_m  = getNum(ellipEl, 'rootchord');
+      tip_m   = getNum(ellipEl, 'tipchord');
+      span_m  = getNum(ellipEl, 'height');
+      sweep_m = getNum(ellipEl, 'sweeplength');
+      const n = parseInt(ellipEl.getElementsByTagName('fincount')[0]?.textContent ?? '3', 10);
+      count = isFinite(n) && n > 0 ? n : 3;
+    } else if (freeEl) {
+      const ff = parseFreeformFinset(freeEl);
+      if (!ff) return null;
+      root_m  = ff.rootChord_m;
+      tip_m   = ff.tipChord_m;
+      span_m  = ff.span_m;
+      sweep_m = ff.sweep_m;
+      count   = ff.numFins;
+    } else {
+      return null;
+    }
+
+    if (root_m <= 0 && span_m <= 0) return null;
+    return {
+      finRootChord_in: root_m * M_TO_IN,
+      finTipChord_in:  tip_m  * M_TO_IN,
+      finSpan_in:      span_m * M_TO_IN,
+      finSweep_in:     sweep_m > 0 ? sweep_m * M_TO_IN : undefined,
+      numFins:         count,
+    };
+  }
+  // OR XML order: [sustainer, ..., booster] — reverse so index 0 = booster
+  const stageFinDataRaw = [...stageEls].reverse().map(extractStageFinData);
+  const stageFinData = stageFinDataRaw.some(f => f != null)
+    ? stageFinDataRaw.map(f => f ?? { finRootChord_in: 0, finTipChord_in: 0, finSpan_in: 0, numFins: 3 })
+    : undefined;
+
   // ── Nose cone ────────────────────────────────────────────────────────────────
   const noseEl = doc.getElementsByTagName('nosecone')[0] ?? null;
   const noseShape = noseEl ? (noseEl.getAttribute('shape') ?? getText(noseEl, 'shape')) : 'ogive';
@@ -372,6 +425,7 @@ export async function parseOrkFile(buffer: ArrayBuffer, clipAtApogee = true): Pr
     rocketName,
     numStagesDetected,
     stageData,
+    stageFinData,
     bodyDiameter_in: radius_m * 2 * M_TO_IN,
     bodyLength_in:   totalLength_m * M_TO_IN,
     noseConeType:    mapNoseShape(noseShape),

@@ -230,10 +230,14 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
       if (isTier3) {
         setNoseType(data.noseConeType);
         if (data.noseLength_in > 0)   setNoseLength(data.noseLength_in.toFixed(2));
-        if (data.finRootChord_in > 0) setFinRoot(data.finRootChord_in.toFixed(2));
-        if (data.finTipChord_in > 0)  setFinTip(data.finTipChord_in.toFixed(2));
-        if (data.finSpan_in > 0)      setFinSpan(data.finSpan_in.toFixed(2));
-        if (data.numFins != null && data.numFins > 0) setNumFins(String(data.numFins));
+        // Use sustainer fin geometry when per-stage data is available (last stage = sustainer)
+        const finSource = (data.stageFinData && data.stageFinData.length > 1)
+          ? data.stageFinData[data.stageFinData.length - 1]
+          : data;
+        if (finSource.finRootChord_in > 0) setFinRoot(finSource.finRootChord_in.toFixed(2));
+        if (finSource.finTipChord_in > 0)  setFinTip(finSource.finTipChord_in.toFixed(2));
+        if (finSource.finSpan_in > 0)      setFinSpan(finSource.finSpan_in.toFixed(2));
+        if (finSource.numFins != null && finSource.numFins > 0) setNumFins(String(finSource.numFins));
       }
       // CG/CP from nose — extracted from OR databranch when available
       if (data.cgFromNose_in != null && data.cgFromNose_in > 0) {
