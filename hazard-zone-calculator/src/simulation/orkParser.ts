@@ -166,7 +166,10 @@ export async function parseOrkFile(buffer: ArrayBuffer, clipAtApogee = true): Pr
 
   // ── Stage count ──────────────────────────────────────────────────────────────
   // Each physical stage is wrapped in a <stage> element; count equals numStages.
-  const stageEls = Array.from(doc.getElementsByTagName('stage'));
+  // <motorconfiguration> also contains <stage number="0" active="true"/> entries
+  // — exclude those (they have a "number" attribute) to avoid double-counting.
+  const stageEls = Array.from(doc.getElementsByTagName('stage'))
+    .filter(el => !el.hasAttribute('number'));
   const numStagesDetected = stageEls.length > 0 ? stageEls.length : 1;
 
   // ── Per-stage CD overrides ────────────────────────────────────────────────────
@@ -249,6 +252,10 @@ export async function parseOrkFile(buffer: ArrayBuffer, clipAtApogee = true): Pr
   const stageFinData = stageFinDataRaw.some(f => f != null)
     ? stageFinDataRaw.map(f => f ?? { finRootChord_in: 0, finTipChord_in: 0, finSpan_in: 0, numFins: 3 })
     : undefined;
+
+  // ── Stage names ───────────────────────────────────────────────────────────────
+  // Reverse to match stageData convention: index 0 = booster
+  const stageNames = [...stageEls].reverse().map(el => getText(el, 'name') || `Stage ${el}`).filter(Boolean);
 
   // ── Nose cone ────────────────────────────────────────────────────────────────
   const noseEl = doc.getElementsByTagName('nosecone')[0] ?? null;
@@ -424,6 +431,7 @@ export async function parseOrkFile(buffer: ArrayBuffer, clipAtApogee = true): Pr
   return {
     rocketName,
     numStagesDetected,
+    stageNames: stageNames.length > 0 ? stageNames : undefined,
     stageData,
     stageFinData,
     bodyDiameter_in: radius_m * 2 * M_TO_IN,

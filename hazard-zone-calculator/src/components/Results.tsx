@@ -286,16 +286,35 @@ export function Results({ result, launchCoords, windBearing, onPrint }: Props) {
             {r.stageImpacts.map(si => {
               const isGoverning = si.range_ft === Math.max(...r.stageImpacts!.map(x => x.range_ft));
               return (
-                <div key={si.stage} className={`flex justify-between items-center rounded-lg px-4 py-2 ${
+                <div key={si.stage} className={`rounded-lg px-4 py-2.5 ${
                   isGoverning ? 'bg-blue-600/15 border border-blue-600/40' : 'bg-slate-700/30'}`}>
-                  <span className="text-sm text-slate-300">{si.label}</span>
-                  <div className="text-right">
-                    <span className={`text-sm font-bold tabular-nums ${isGoverning ? 'text-blue-300' : 'text-slate-200'}`}>
-                      {si.range_ft.toFixed(0)} ft
-                    </span>
-                    <span className="text-xs text-slate-500 ml-2">{si.range_m.toFixed(0)} m</span>
-                    {isGoverning && <span className="ml-2 text-xs text-blue-400">governing</span>}
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-300">{si.label}</span>
+                    <div className="text-right">
+                      <span className={`text-sm font-bold tabular-nums ${isGoverning ? 'text-blue-300' : 'text-slate-200'}`}>
+                        {si.range_ft.toFixed(0)} ft
+                      </span>
+                      <span className="text-xs text-slate-500 ml-2">{si.range_m.toFixed(0)} m</span>
+                      {isGoverning && <span className="ml-2 text-xs text-blue-400">governing</span>}
+                    </div>
                   </div>
+                  {si.cdFlight != null && (
+                    <div className="mt-1 flex flex-wrap gap-x-4 text-xs text-slate-500">
+                      <span>
+                        Flight CD: <span className={si.hasCdOverride ? 'text-violet-400' : 'text-slate-400'}>
+                          {si.cdFlight.toFixed(3)}
+                        </span>
+                        {si.hasCdOverride && <span className="text-slate-600 ml-1">(from .ork)</span>}
+                        {!si.hasCdOverride && <span className="text-slate-600 ml-1">(Barrowman)</span>}
+                      </span>
+                      {si.cdDescent != null && (
+                        <span>
+                          Descent CD: <span className="text-amber-400">{si.cdDescent.toFixed(3)}</span>
+                          <span className="text-slate-600 ml-1">(tumbling ×2)</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}

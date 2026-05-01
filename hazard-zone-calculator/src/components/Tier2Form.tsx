@@ -544,7 +544,7 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
             bodyDiameter_in: d_in,
             bodyLength_in: l_in,
             cdOverride,
-            buildQuality: (isTier3 && orFlightData) ? 1.0 : bq,
+            buildQuality: (isTier3 && orFlightData) || !!manualCdOverride ? 1.0 : bq,
             cg_in: cg,
             cp_in: cp,
             siteElevation_ft: elev,
@@ -581,7 +581,7 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
           siteTemp_F:        temp,
           surfaceWind_mph:   w_mph,
           maxLaunchAngle_deg: maxAng,
-          buildQuality:      (isTier3 && orFlightData) ? 1.0 : bq,
+          buildQuality:      (isTier3 && orFlightData) || !!manualCdOverride ? 1.0 : bq,
           cdOverride,
           storeTrajectories: true,
         });
@@ -711,6 +711,113 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
             <span className="text-slate-500">(removes parachute descent — re-upload to apply)</span>
           </label>
         </div>
+
+        {/* ── Dev debug panel — visible when .ork is loaded ─────────────────── */}
+        {orkData && (
+          <details className="mt-3">
+            <summary className="text-xs text-slate-500 hover:text-slate-300 cursor-pointer select-none transition-colors">
+              ▶ Dev: OpenRocket parsed data
+            </summary>
+            <div className="mt-2 rounded-lg bg-slate-900/60 border border-slate-700 p-3 text-xs font-mono space-y-3">
+
+              {/* Stage count */}
+              <div>
+                <p className="text-slate-400 font-sans font-medium mb-1">Stage detection</p>
+                <p className="text-slate-300">
+                  Detected: <span className="text-green-400">{orkData.numStagesDetected ?? 1}</span> stage(s)
+                  {orkData.stageNames && (
+                    <span className="text-slate-500 ml-2">
+                      ({orkData.stageNames.map((n, i) => `[${i}] ${n}`).join(', ')})
+                    </span>
+                  )}
+                </p>
+              </div>
+
+              {/* Per-stage data */}
+              {orkData.numStagesDetected != null && orkData.numStagesDetected > 1 && (
+                <div>
+                  <p className="text-slate-400 font-sans font-medium mb-1">Per-stage data (index 0 = booster, fires first)</p>
+                  <div className="space-y-2">
+                    {Array.from({ length: orkData.numStagesDetected }).map((_, i) => {
+                      const isBooster = i === 0;
+                      const isSustainer = i === orkData.numStagesDetected! - 1 && i > 0;
+                      const label = orkData.stageNames?.[i]
+                        ?? (isBooster ? 'Booster' : isSustainer ? 'Sustainer' : `Stage ${i + 1}`);
+                      const cd = orkData.stageData?.[i]?.cdOverride;
+                      const fins = orkData.stageFinData?.[i];
+                      return (
+                        <div key={i} className="pl-2 border-l border-slate-700">
+                          <p className="text-blue-300">[{i}] {label}</p>
+                          <p className="text-slate-400 pl-2">
+                            CD override: {cd != null ? <span className="text-yellow-300">{cd.toFixed(3)}</span> : <span className="text-slate-600">none (uses global)</span>}
+                          </p>
+                          {fins ? (
+                            <p className="text-slate-400 pl-2">
+                              Fins: {fins.numFins} × root <span className="text-slate-200">{fins.finRootChord_in.toFixed(2)}"</span>
+                              {' '}/ tip <span className="text-slate-200">{fins.finTipChord_in.toFixed(2)}"</span>
+                              {' '}/ span <span className="text-slate-200">{fins.finSpan_in.toFixed(2)}"</span>
+                              {fins.finSweep_in != null && <> / sweep <span className="text-slate-200">{fins.finSweep_in.toFixed(2)}"</span></>}
+                            </p>
+                          ) : (
+                            <p className="text-slate-600 pl-2">Fins: not found in stage element</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Global geometry */}
+              <div>
+                <p className="text-slate-400 font-sans font-medium mb-1">Full-stack geometry</p>
+                <p className="text-slate-300">Body: <span className="text-slate-200">{orkData.bodyDiameter_in.toFixed(3)}"</span> dia × <span className="text-slate-200">{orkData.bodyLength_in.toFixed(2)}"</span> long</p>
+                <p className="text-slate-300">Nose: <span className="text-slate-200">{orkData.noseConeType}</span> <span className="text-slate-200">{orkData.noseLength_in.toFixed(2)}"</span></p>
+                <p className="text-slate-300">
+                  Fins (global / auto-fill source): {orkData.numFins} × root <span className="text-slate-200">{orkData.finRootChord_in.toFixed(2)}"</span>
+                  {' '}/ tip <span className="text-slate-200">{orkData.finTipChord_in.toFixed(2)}"</span>
+                  {' '}/ span <span className="text-slate-200">{orkData.finSpan_in.toFixed(2)}"</span>
+                </p>
+              </div>
+
+              {/* CG / CP */}
+              <div>
+                <p className="text-slate-400 font-sans font-medium mb-1">CG / CP (full-stack, t=0 from databranch)</p>
+                {orkData.cgFromNose_in != null
+                  ? <p className="text-slate-300">CG from nose: <span className="text-slate-200">{orkData.cgFromNose_in.toFixed(2)}"</span></p>
+                  : <p className="text-slate-600">CG: not found in simulation data</p>}
+                {orkData.cpFromNose_in != null
+                  ? <p className="text-slate-300">CP from nose: <span className="text-slate-200">{orkData.cpFromNose_in.toFixed(2)}"</span></p>
+                  : <p className="text-slate-600">CP: not found in simulation data</p>}
+                {orkData.cgFromNose_in != null && orkData.cpFromNose_in != null && orkData.bodyDiameter_in > 0 && (
+                  <p className="text-slate-300">
+                    Stability margin:{' '}
+                    <span className={(orkData.cpFromNose_in - orkData.cgFromNose_in) / orkData.bodyDiameter_in >= 1.0 ? 'text-green-400' : 'text-yellow-400'}>
+                      {((orkData.cpFromNose_in - orkData.cgFromNose_in) / orkData.bodyDiameter_in).toFixed(2)} cal
+                    </span>
+                    <span className="text-slate-500 ml-1">(full-stack, powered flight)</span>
+                  </p>
+                )}
+                <p className="text-slate-600 text-xs mt-1">Note: per-stage CG/CP not yet extracted — sustainer values require post-separation databranch analysis.</p>
+              </div>
+
+              {/* Simulation data */}
+              <div>
+                <p className="text-slate-400 font-sans font-medium mb-1">Stored simulation data</p>
+                {orkData.orkMinCd != null
+                  ? <p className="text-slate-300">Min CD (pre-apogee): <span className="text-yellow-300">{orkData.orkMinCd.toFixed(3)}</span></p>
+                  : <p className="text-slate-600">Min CD: no simulation data in file</p>}
+                {orkData.maxApogee_m != null
+                  ? <p className="text-slate-300">Stored apogee: <span className="text-slate-200">{(orkData.maxApogee_m * M_TO_FT).toFixed(0)} ft</span></p>
+                  : <p className="text-slate-600">Apogee: no simulation data in file</p>}
+                {orkData.motorDesignation && (
+                  <p className="text-slate-300">Motor: <span className="text-slate-200">{orkData.motorDesignation}</span>{orkData.motorManufacturer && <span className="text-slate-500"> ({orkData.motorManufacturer})</span>}</p>
+                )}
+              </div>
+
+            </div>
+          </details>
+        )}
 
         {/* OpenRocket flight data CSV — Tier 3 only, placed here so it's near the .ork import */}
         {isTier3 && (

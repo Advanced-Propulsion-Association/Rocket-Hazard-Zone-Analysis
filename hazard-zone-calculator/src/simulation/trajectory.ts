@@ -589,11 +589,19 @@ export function computeMultiStageHazardZone(input: MultiStageHazardZoneInput): H
     cdMultiplier:        stabResult?.multiplier,
     cdEffective:         effectiveCd,
     stabilityCategory:   stabResult?.category,
-    stageImpacts: input.stages.map((_, i) => ({
-      stage:   i + 1,
-      label:   stageLabel(i, input.stages.length),
-      range_m: stageMaxRanges[i],
-      range_ft: stageMaxRanges[i] * M_TO_FT,
-    })),
+    stageImpacts: input.stages.map((s, i) => {
+      const isLast = i === input.stages.length - 1;
+      const cdFlight = stageCdBase[i];
+      const cdDescent = isLast ? undefined : stageCdEff[i] * 2.0; // tumbling for separated stages
+      return {
+        stage:   i + 1,
+        label:   stageLabel(i, input.stages.length),
+        range_m: stageMaxRanges[i],
+        range_ft: stageMaxRanges[i] * M_TO_FT,
+        cdFlight,
+        cdDescent,
+        hasCdOverride: s.cdOverride != null,
+      };
+    }),
   };
 }

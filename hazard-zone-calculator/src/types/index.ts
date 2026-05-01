@@ -96,8 +96,16 @@ export interface HazardZoneResult {
   cdMultiplier?: number;
   cdEffective?: number;
   stabilityCategory?: 'stable' | 'marginal' | 'unstable';
-  // Multi-stage: per-stage impact ranges
-  stageImpacts?: Array<{ stage: number; label: string; range_m: number; range_ft: number }>;
+  // Multi-stage: per-stage impact ranges + CD info
+  stageImpacts?: Array<{
+    stage: number;
+    label: string;
+    range_m: number;
+    range_ft: number;
+    cdFlight: number;     // CD used during this stage's powered flight
+    cdDescent?: number;   // CD used for ballistic descent (tumbling separated stages only; undefined for sustainer)
+    hasCdOverride: boolean; // true if CD came from .ork override, false = Barrowman/fineness fallback
+  }>;
   // OpenRocket comparison
   orkApogee_m?: number;
   orkMotorDesignation?: string;
@@ -150,6 +158,7 @@ export interface OpenRocketData {
   cgFromNose_in?: number;
   cpFromNose_in?: number;
   numStagesDetected?: number;  // count of <stage> elements in the .ork file
+  stageNames?: string[];       // name of each stage from XML; index 0 = booster (firing order)
   stageData?: Array<{ cdOverride?: number }>; // per-stage overrides; index 0 = booster (firing order)
   stageFinData?: Array<{
     finRootChord_in: number;
