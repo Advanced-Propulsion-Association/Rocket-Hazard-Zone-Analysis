@@ -287,3 +287,211 @@ The computed hazard zone radius defines the minimum required exclusion area. Act
 - Waivered launch sites issued by the FAA have a fixed waiver radius on the COA. Your computed hazard zone must fit within the waivered radius; if it does not, you cannot fly that rocket at that site without an amended COA.
 - Range safety officers (RSOs) at clubs and launches may apply additional safety margins beyond the computed radius.
 - ATC coordination may be required for flights into Class E, D, C, or B airspace regardless of the ground exclusion radius.
+
+---
+
+## 8. Technical Reference
+
+This appendix documents the simulation methodology in sufficient detail for independent validation. All values given are the exact constants used in the current version of the code.
+
+### 8.1 Coordinate System and Equations of Motion
+
+The simulation uses a 2D Cartesian coordinate system:
+
+- **x** = downrange distance (horizontal, positive downwind)
+- **z** = altitude AGL (positive up)
+
+The state vector at each time step is:
+
+```
+[x, z, vx, vz, m]
+```
+
+where `vx` and `vz` are velocity components and `m` is the instantaneous total mass (decreasing during motor burn as propellant is consumed).
+
+**Forces acting on the rocket:**
+
+1. **Thrust (T):** Read from the motor's thrust curve at elapsed time `t`. Applied along the thrust axis (launch angle from vertical for single-stage). Ambient pressure correction is applied when nozzle exit area is known:
+
+   ```
+   T_corrected = T_thrust_curve + (P_sea_level − P_ambient) × A_nozzle_exit
+   ```
+
+2. **Aerodynamic drag (D):**
+
+   ```
+   D = ½ × ρ × v_rel² × A_ref × C_D(Mach)
+   ```
+
+   where `v_rel` is velocity relative to the air (accounting for headwind), `A_ref` is the body cross-sectional area, and `C_D` is the Mach-corrected drag coefficient.
+
+3. **Gravity:** 9.80665 m/s² downward, constant throughout flight.
+
+**Integration scheme:** 4th-order Runge-Kutta (RK4) with maximum time step `dt_max = 0.05 s`. Maximum simulation time is 600 s.
+
+**Mass flow:** Propellant mass decreases linearly with instantaneous thrust during the burn:
+
+```
+dm/dt = −m_propellant × T(t) / I_total
+```
+
+where `I_total` is the total motor impulse (N·s).
+
+### 8.2 Atmosphere Model
+
+The tool uses the 1976 US Standard Atmosphere (ISA) with 8 piecewise layers. Sea-level reference conditions: T₀ = 288.15 K, P₀ = 101,325 Pa. Physical constants: g₀ = 9.80665 m/s², R = 287.058 J/(kg·K), γ = 1.400.
+
+| Layer | Base alt (m) | Lapse rate (K/m) | Base T (K) | Base P (Pa) |
+|-------|-------------|-----------------|------------|------------|
+| Troposphere | 0 | −0.0065 | 288.15 | 101,325.0 |
+| Tropopause | 11,000 | 0.0000 | 216.65 | 22,632.1 |
+| Stratosphere 1 | 20,000 | +0.0010 | 216.65 | 5,474.89 |
+| Stratosphere 2 | 32,000 | +0.0028 | 228.65 | 868.019 |
+| Stratopause | 47,000 | 0.0000 | 270.65 | 110.906 |
+| Mesosphere 1 | 51,000 | −0.0028 | 270.65 | 66.939 |
+| Mesosphere 2 | 71,000 | −0.0020 | 214.65 | 3.956 |
+| Mesopause | 86,000 | 0.0000 | 186.87 | 0.373 |
+
+Temperature at altitude `h` within a layer: `T(h) = T_base + lapse × (h − h_base) + ΔT_site`
+
+where `ΔT_site` is the offset between the actual site temperature and the ISA sea-level value (allows the tool to account for hot or cold launch days).
+
+Pressure at altitude `h`:
+- If lapse ≠ 0: `P(h) = P_base × (T_base / T(h))^(g₀ / (R × lapse))`
+- If lapse = 0 (isothermal): `P(h) = P_base × exp(−g₀ × Δh / (R × T_base))`
+
+Air density: `ρ = P / (R × T)`
+
+Speed of sound: `a = sqrt(γ × R × T)` = 340.3 m/s at sea level ISA.
+
+**Wind gradient:** Surface wind speed `W_s` is scaled with altitude using a 1/7 power law:
+
+```
+W(z) = W_s × (z / 10)^0.14   for z > 10 m
+W(z) = W_s                    for z ≤ 10 m
+```
+
+### 8.3 Drag Model
+
+#### 8.3.1 Subsonic Baseline — Barrowman Component Buildup
+
+For Tier 3 inputs, the subsonic drag coefficient is computed from first-principles component contributions referenced to the body cross-sectional area A_ref = π(D/2)².
+
+**Skin friction (turbulent flat plate):**
+
+```
+C_f = max(0.004,  0.005 × (3×10⁷ / Re_L)^0.15)
+```
+
+where the reference Reynolds number is `Re_L = v_ref × L / ν` with kinematic viscosity `ν = 1.5×10⁻⁵ m²/s`. The reference velocity is estimated as `v_ref = I_total / (m_total × 2)`.
+
+Total skin friction drag:
+```
+C_D,friction = C_f × (A_wet,nose + A_wet,body) / A_ref
+```
+
+Nose cone wetted area is approximated as a cone slant surface. Body tube wetted area is the lateral surface of a cylinder.
+
+**Base drag (Hoerner empirical correlation):**
+```
+C_D,base = 0.029 / sqrt(C_D,friction,body)
+```
+
+where `C_D,friction,body` is the skin friction contribution from the body tube only (excluding nose).
+
+**Fin drag:**
+```
+C_D,fins = N_fins × (2 × A_fin / A_ref) × C_f × (1 + 2t/c) × 1.1
+```
+
+where `t/c = 0.05` (5% fin thickness ratio, typical plywood/fibreglass) and the 1.1 factor is Hoerner's fin-body interference correction.
+
+**Nose cone pressure drag (subsonic only):**
+- Tangent ogive, Von Kármán (Haack): `C_D,nose = 0` (smooth pressure recovery)
+- Parabolic: `C_D,nose = 0.01` (slight blunt-tip correction)
+- Conical: `C_D,nose = min(2 sin²θ_half, 0.05)` where `θ_half = arctan(R / L_nose)`
+
+**Parasitic drag** (launch lugs, surface joints): constant `C_D,parasitic = 0.02`.
+
+**Total subsonic CD:**
+```
+C_D,sub = C_D,friction + C_D,base + C_D,fins + C_D,nose + C_D,parasitic
+```
+
+For Tier 1 and Tier 2 (no detailed geometry), the subsonic CD is estimated from fineness ratio:
+```
+C_D,sub = 0.35 + 3.0 / (L/D)²
+```
+
+#### 8.3.2 Mach Correction — All Shapes Except Tangent Ogive
+
+The following piecewise correction is applied to the subsonic CD for all nose cone types except tangent ogive:
+
+| Mach range | Formula | Notes |
+|-----------|---------|-------|
+| M < 0.87 | `C_D = C_D,sub` | Subsonic baseline |
+| 0.87 ≤ M < 1.0 | `C_D = C_D,sub × (1 + 0.20 × t²)` where `t = (M−0.87)/0.13` | Quadratic transonic rise |
+| 1.0 ≤ M < 1.3 | `C_D = C_D,sub × (1.20 − 0.29 × t)` where `t = (M−1.0)/0.3` | Linear decline |
+| M ≥ 1.3 | `C_D = C_D,sub × 1.055 × M^(−0.561)` | Van Driest supersonic decay |
+
+Peak factor of 1.20× occurs at M = 1.0. At M = 2.0 the multiplier is approximately 0.71×.
+
+Calibration source: OpenRocket session 8 data.
+
+#### 8.3.3 Mach Correction — Tangent Ogive Noses (Wave Drag Model)
+
+Tangent ogive noses produce near-zero subsonic pressure drag (the Barrowman sinφ = 0 result, confirmed by OpenRocket source, bug #2998). At transonic speeds, however, a real ogive nose generates wave drag that is independent of skin friction magnitude. The standard multiplicative correction mis-predicts this behavior, so a separate physics-based model is used.
+
+**Wave drag increment** (absolute, not a multiplier):
+
+| Mach range | Wave drag ΔC_D |
+|-----------|----------------|
+| M < 0.85 | 0 |
+| 0.85 ≤ M < 1.05 | `0.025 × (M − 0.85) / 0.20` (Prandtl-Glauert linear onset) |
+| 1.05 ≤ M < 1.20 | 0.025 (transonic plateau) |
+| M ≥ 1.20 | `0.025 × 1.20 / M` (Ackeret 1/M supersonic decay) |
+
+Peak wave drag ΔC_D = 0.025, referenced to body cross-section (A_nose/A_ref = 1.0 for tangent ogive).
+
+Source: NACA free-flight data, Stoney (1954).
+
+**Combined ogive Mach correction:**
+
+| Mach range | Formula |
+|-----------|---------|
+| M < 0.85 | `C_D = C_D,sub` |
+| 0.85 ≤ M ≤ 1.10 | `C_D = C_D,sub + ΔC_D,wave` |
+| M > 1.10 | `C_D = C_D,sub × 1.055 × M^(−0.561) + ΔC_D,wave` |
+
+The transition at M = 1.10 is smooth: the Van Driest multiplier evaluates to approximately 1.000 at M = 1.10, so no discontinuity is introduced.
+
+### 8.4 Worst-Case Trajectory Sweep
+
+To compute the hazard zone radius without knowing the actual launch angle, the tool simulates the full family of worst-case trajectories:
+
+- **Launch angle sweep:** 0° (vertical) to 20° from vertical, in 1° increments (21 trajectories total). 20° is the maximum angle permitted by NAR/Tripoli site safety rules for high-power launches.
+- **Headwind:** The user-specified surface wind speed is applied as a constant horizontal velocity offset opposing forward motion throughout the entire trajectory.
+- **Hazard radius:** The maximum of all 21 trajectory impact distances from the launch pad.
+
+The tool also simulates a pure vertical trajectory (0°) to extract the maximum apogee for comparison with the OpenRocket reference and NAR/Tripoli quarter-altitude rule.
+
+### 8.5 Multi-Stage Simulation
+
+For two-stage rockets, the tool runs four separate simulations and combines their impact footprints:
+
+1. **S1 burn:** Booster fires from launch to burnout. State at burnout (position, velocity) is recorded.
+2. **Booster ballistic:** Booster body descends from burnout altitude nose-forward (conservative — less drag). Impact point is recorded.
+3. **Sustainer burn:** Upper stage fires from the recorded burnout state, with a configurable ignition delay. Descends to impact.
+4. **Intermediate ballistic:** If staging occurs before booster burnout (rare), an intermediate body is simulated separately.
+
+The hazard zone radius is the maximum impact distance across all four simulations.
+
+### 8.6 Cited Sources
+
+- Barrowman, J.S. (1967). *The Practical Calculation of the Aerodynamic Characteristics of Slender Finned Vehicles*. Master's thesis, Catholic University of America.
+- Stoney, W.E. (1954). *Collection of Zero-Lift Drag Data on Bodies of Revolution from Free-Flight Investigations*. NACA Technical Note TN-3391.
+- Niskanen, S. (2009). *OpenRocket Technical Documentation*. Helsinki University of Technology.
+- FAA Order 8900.1, Volume 3, Chapter 6: *Air Traffic Organization Policy — Amateur Rocket Operations*.
+- 14 CFR §101.25: *Operating limitations for Class 2-High Power Rockets and Class 3-Advanced High Power Rockets*.
+- US Standard Atmosphere, 1976. NOAA/NASA/USAF. Washington, D.C.
+- Hoerner, S.F. (1965). *Fluid-Dynamic Drag*. Published by the author.
