@@ -1,3 +1,5 @@
+import { ogiveWaveDragCD } from './barrowmanDrag';
+
 /**
  * Drag coefficient model for amateur rockets.
  *
@@ -41,6 +43,17 @@ export function cdMachCorrection(cdSubsonic: number, mach: number): number {
   }
   // Supersonic: power-law decay continuous at M=1.3; 0.91→0.84→0.71 at M=1.3→1.5→2.0
   return cdSubsonic * 1.055 * Math.pow(mach, -0.561);
+}
+
+/**
+ * Mach correction for tangent ogive noses.
+ * Uses absolute additive wave drag (not a multiplier) + Van Driest supersonic skin friction decay.
+ */
+export function cdMachCorrectionOgive(cdSubsonic: number, mach: number): number {
+  const wave = ogiveWaveDragCD(mach);
+  if (mach < 0.85) return cdSubsonic;
+  if (mach <= 1.10) return cdSubsonic + wave;
+  return cdSubsonic * 1.055 * Math.pow(mach, -0.561) + wave;
 }
 
 /**
