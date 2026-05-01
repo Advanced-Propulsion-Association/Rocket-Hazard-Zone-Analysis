@@ -95,3 +95,75 @@ After upload, review all pre-filled fields before running the simulation. Motor 
 ### 2.4 Browser Compatibility
 
 The tool requires a modern browser with JavaScript enabled. Tested on Chrome 120+, Firefox 121+, Safari 17+, and Edge 120+. Internet Explorer is not supported.
+
+---
+
+## 3. Tier 1: Apogee-Only Analysis
+
+### 3.1 Input Fields
+
+| Field | Description | Units |
+|-------|-------------|-------|
+| Expected Apogee | Peak altitude above ground level | feet AGL |
+| Site Elevation | Launch site elevation above sea level | feet MSL |
+
+The expected apogee is the only required input. Use the apogee from your OpenRocket simulation, RASAero II prediction, or motor manufacturer's stated altitude for your airframe.
+
+### 3.2 How the Hazard Zone Is Computed
+
+Tier 1 applies a quarter-altitude rule: the hazard zone radius is set to one quarter of the expected apogee. This is the formula used by NAR and Tripoli for site safety planning, and it is intentionally conservative — it assumes the rocket travels horizontally for a full quarter of its apogee altitude before impacting the ground.
+
+For very high apogees (above 50,000 ft AGL), Tier 1 results should be treated as preliminary estimates only. At those altitudes, aerodynamic and atmospheric effects dominate in ways that a simple altitude-fraction rule does not capture well. Use Tier 2 or Tier 3 instead.
+
+### 3.3 When Tier 1 Is Sufficient
+
+Tier 1 is appropriate when:
+- The rocket is low-power (A through D motors) and the site is a standard hobby club field.
+- Motor data is not yet available (preliminary site assessment).
+- A quick conservative upper bound is needed for initial planning.
+
+Tier 1 is **not** appropriate for FAA waiver applications involving high-power rockets. For those, use Tier 3.
+
+---
+
+## 4. Tier 2: Basic Simulation
+
+### 4.1 Input Fields
+
+**Body geometry:**
+
+| Field | Description | Units |
+|-------|-------------|-------|
+| Body Diameter | Maximum outer diameter of airframe | inches |
+| Body Length | Total length from nose tip to nozzle exit | inches |
+| Dry Mass | Airframe mass without propellant | lbs |
+
+**Motor:**
+
+Select from the built-in ThrustCurve.org database. The tool supports RASP format thrust curves. Propellant mass, total impulse, and burn time are loaded automatically from the selected motor.
+
+**Launch conditions:**
+
+| Field | Description | Default |
+|-------|-------------|---------|
+| Launch Angle | Degrees from vertical | 0° (vertical) |
+| Headwind | Surface wind speed opposing flight | 0 MPH |
+| Site Elevation | Launch pad altitude MSL | 0 ft |
+| Site Temperature | Ambient temperature at launch | 59°F (288 K) |
+
+**Note on headwind:** The tool simulates the headwind you enter **plus** the worst-case wind from the angle sweep. You do not need to enter 20 MPH manually — entering your actual wind condition produces a conservative result for your specific launch day. See §8.4 for how the sweep works.
+
+### 4.2 Multi-Stage Configuration
+
+Toggle **Multi-Stage** to enable two-stage input. Provide booster and sustainer parameters separately:
+- Booster: body dimensions, motor, propellant mass
+- Sustainer: body dimensions, motor, ignition delay after booster burnout
+- The tool computes separate impact footprints for the booster (tumbling descent) and sustainer (nose-forward descent) and returns the maximum of the two.
+
+### 4.3 Reading the Results
+
+**Hazard zone radius:** The worst-case impact distance from the launch pad across all simulated trajectories. This is the exclusion radius you report to the FAA.
+
+**Trajectory sweep plot:** Each line in the plot represents a single simulated trajectory at a specific launch angle (0°–20° in 1° steps). The outermost line's endpoint is the hazard zone radius.
+
+**NAR/Tripoli comparison:** The results panel displays the NAR/Tripoli quarter-altitude estimate alongside the simulation result. If the simulation result exceeds the quarter-altitude estimate, the simulation result governs.
