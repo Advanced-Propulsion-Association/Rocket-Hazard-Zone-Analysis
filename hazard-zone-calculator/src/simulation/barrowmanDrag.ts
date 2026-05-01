@@ -115,3 +115,19 @@ export function barrowmanDragBreakdown(input: BarrowmanDragInput): BarrowmanDrag
 export function barrowmanCD(input: BarrowmanDragInput): number {
   return barrowmanDragBreakdown(input).CD_total;
 }
+
+/**
+ * Absolute wave drag CD increment for a tangent ogive nose,
+ * referenced to the body cross-section (A_nose/A_ref = 1.0 for tangent ogive).
+ *
+ * Onset at M=0.85, linear Prandtl-Glauert rise to peak 0.025 at M=1.05,
+ * transonic plateau to M=1.20, then 1/M Ackeret decay.
+ *
+ * Source: aerodynamics_reference.md §12.1
+ */
+export function ogiveWaveDragCD(mach: number): number {
+  if (mach < 0.85) return 0;
+  if (mach < 1.05) return 0.025 * (mach - 0.85) / 0.20;
+  if (mach < 1.20) return 0.025;
+  return 0.025 * 1.20 / mach;
+}
