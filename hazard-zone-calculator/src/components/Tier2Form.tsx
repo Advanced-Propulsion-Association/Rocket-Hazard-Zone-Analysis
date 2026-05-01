@@ -149,6 +149,23 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
 
   // ── GPS helpers ────────────────────────────────────────────────────────────
 
+  const handleReset = () => {
+    setDiameter(''); setLength(''); setMass('');
+    setNoseType('ogive'); setNoseLength(''); setFinRoot(''); setFinTip(''); setFinSpan(''); setNozzleDia('');
+    setNumStages('1'); setNumFins('3');
+    setStageStates([defaultStage(), defaultStage()]);
+    setBuildQuality('1.0'); setCgIn(''); setCpIn('');
+    setSiteElev('0'); setSiteTemp('59'); setWind('20'); setMaxAngle('20');
+    setLat(''); setLon(''); setGpsStatus(''); setShowGps(false); setWindBearing('');
+    setMotorMode('lookup'); setMotorDesig(''); setMotorStatus(''); setResolvedMotor(null); setRaspName('');
+    setAvgThrust(''); setBurnTimeS(''); setPropMass(''); setMotorMass('');
+    setOrkData(null); setOrkStatus(''); setClipAtApogee(true); setManualCdOverride(''); setShowGeometryDetails(true);
+    setOrFlightData(null); setOrCsvStatus('');
+    if (orkFileRef.current)  orkFileRef.current.value  = '';
+    if (fileRef.current)     fileRef.current.value     = '';
+    if (orCsvRef.current)    orCsvRef.current.value    = '';
+  };
+
   const handleGeolocate = () => {
     if (!navigator.geolocation) { setGpsStatus('Geolocation not available.'); return; }
     setGpsStatus('Getting location...');
@@ -716,7 +733,7 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
         {orkData && (
           <details className="mt-3">
             <summary className="text-xs text-slate-500 hover:text-slate-300 cursor-pointer select-none transition-colors">
-              ▶ Dev: OpenRocket parsed data
+              Dev: parsed .ork data ▶ expand / ▲ collapse
             </summary>
             <div className="mt-2 rounded-lg bg-slate-900/60 border border-slate-700 p-3 text-xs font-mono space-y-3">
 
@@ -1133,15 +1150,13 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
               </>
             )}
 
-            {/* Collapse link — only shown when .ork is loaded and fields are expanded */}
-            {orkData && (
-              <div className="mt-3 text-right">
-                <button type="button" onClick={() => setShowGeometryDetails(false)}
-                  className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
-                  ▲ Collapse geometry
-                </button>
-              </div>
-            )}
+            {/* Collapse link — always shown when geometry fields are expanded */}
+            <div className="mt-3 text-right">
+              <button type="button" onClick={() => setShowGeometryDetails(false)}
+                className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                ▲ Collapse geometry
+              </button>
+            </div>
           </>
         )}
 
@@ -1349,17 +1364,32 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
         )}
       </Section>}
 
-      {/* Save / Load config */}
-      <div className="flex gap-3 items-center flex-wrap">
-        <button type="button" onClick={handleSaveConfig}
-          className="text-xs px-3 py-1.5 rounded border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white transition-colors">
-          Save Config
-        </button>
-        <button type="button" onClick={() => configFileRef.current?.click()}
-          className="text-xs px-3 py-1.5 rounded border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white transition-colors">
-          Load Config
-        </button>
-        <input ref={configFileRef} type="file" accept=".json" className="hidden" onChange={handleLoadConfig} />
+      {/* Save / Load config + Reset */}
+      <div className="space-y-2">
+        <div className="flex gap-3 items-center flex-wrap">
+          <div className="flex flex-col items-start gap-0.5">
+            <button type="button" onClick={handleSaveConfig}
+              className="text-xs px-3 py-1.5 rounded border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white transition-colors">
+              Save Config
+            </button>
+            <span className="text-xs text-slate-600">Export all inputs as a JSON file</span>
+          </div>
+          <div className="flex flex-col items-start gap-0.5">
+            <button type="button" onClick={() => configFileRef.current?.click()}
+              className="text-xs px-3 py-1.5 rounded border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white transition-colors">
+              Load Config
+            </button>
+            <span className="text-xs text-slate-600">Restore inputs from a saved JSON file</span>
+          </div>
+          <input ref={configFileRef} type="file" accept=".json" className="hidden" onChange={handleLoadConfig} />
+          <div className="ml-auto flex flex-col items-end gap-0.5">
+            <button type="button" onClick={handleReset}
+              className="text-xs px-3 py-1.5 rounded border border-red-900/60 hover:border-red-600 text-red-400/70 hover:text-red-300 transition-colors">
+              Clear All
+            </button>
+            <span className="text-xs text-slate-600">Reset all fields to blank</span>
+          </div>
+        </div>
       </div>
 
       <button type="submit"
