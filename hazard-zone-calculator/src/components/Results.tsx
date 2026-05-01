@@ -160,7 +160,7 @@ export function Results({ result, launchCoords, windBearing, onPrint }: Props) {
     <div className="space-y-6" id="results-print-root">
       {/* Print-only header */}
       <div className="hidden print:block border-b border-slate-600 pb-4 mb-2">
-        <h1 className="text-xl font-bold text-black">Amateur Rocket Hazard Zone Analysis</h1>
+        <h1 className="text-xl font-bold text-black">FAA Hobby Rocket Hazard Zone Analysis</h1>
         <p className="text-sm text-gray-600 mt-1">
           Generated {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
           {launchCoords ? ` · Launch site: ${launchCoords.lat.toFixed(5)}°, ${launchCoords.lon.toFixed(5)}°` : ''}

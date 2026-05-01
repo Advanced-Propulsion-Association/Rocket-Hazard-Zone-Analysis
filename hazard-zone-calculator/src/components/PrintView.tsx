@@ -137,7 +137,7 @@ export function PrintView({ result, launchCoords, inputSummary, mapSnapshotUrl }
                 Hazard Zone Analysis Report
               </div>
               <div style={{ fontSize: '11px', color: '#444', marginTop: '2px', fontStyle: 'italic' }}>
-                Amateur Rocketry — FAA AST Submittal
+                Hobby Rocketry — FAA AST Submittal
               </div>
             </div>
             <div style={{ textAlign: 'right', fontSize: '9px', color: '#555', lineHeight: '1.7' }}>
