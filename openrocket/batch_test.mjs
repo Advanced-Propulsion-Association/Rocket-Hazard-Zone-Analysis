@@ -152,13 +152,13 @@ function cdMach(cdSub, mach) {
  * Source: aerodynamics_reference.md §12.1; batch calibration session 14.
  */
 function cdMachOgive(cdSub, mach) {
-  if (mach < 0.85) return cdSub;
-  if (mach < 1.1) {
-    const t    = (mach - 0.85) / 0.25;        // 0 at M=0.85, 1 at M=1.10
-    const bump = 0.13 * 4.0 * t * (1.0 - t);  // parabola, peak +13% at t=0.5 (M≈0.975)
-    return cdSub * (1.0 + bump);
-  }
-  return cdSub * 1.055 * Math.pow(mach, -0.561);
+  const wave = mach < 0.85  ? 0
+             : mach < 1.05  ? 0.025 * (mach - 0.85) / 0.20
+             : mach < 1.20  ? 0.025
+             :                 0.025 * 1.20 / mach;
+  if (mach < 0.85)  return cdSub;
+  if (mach <= 1.10) return cdSub + wave;
+  return cdSub * 1.055 * Math.pow(mach, -0.561) + wave;
 }
 
 /**
