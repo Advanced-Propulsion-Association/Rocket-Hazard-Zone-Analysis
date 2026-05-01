@@ -1,6 +1,6 @@
-# FAA Hobby Rocket Hazard Zone Calculator
+# FAA Rocket Hazard Zone Calculator
 
-A web-based tool for computing FAA-compliant launch exclusion radii for hobby rockets. Replaces the legacy TAOS (Sandia Labs, 1995) tool with a modern browser interface running a 3-DOF RK4 trajectory simulation with Barrowman-based drag.
+A web-based tool for computing FAA-compliant launch exclusion radii for rockets. Replaces the legacy TAOS (Sandia Labs, 1995) tool with a modern browser interface running a 3-DOF RK4 trajectory simulation with Barrowman-based drag.
 
 **[INSERT SCREENSHOT]**
 *(Screenshot of the results panel — add before publishing)*
