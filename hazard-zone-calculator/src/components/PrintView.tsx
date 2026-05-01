@@ -12,10 +12,10 @@ const TIER_LABELS: Record<InputTier, string> = {
 };
 
 const BUILD_QUALITY_LABELS: Record<string, string> = {
-  '1':    'Professional (×1.00)',
-  '1.1':  'Good (×1.10)',
-  '1.25': 'Average (×1.25)',
-  '1.5':  'Poor (×1.50)',
+  '1':    'Ideal (×1.00)',
+  '1.15': 'Competition (×1.15)',
+  '1.3':  'Standard build (×1.30)',
+  '1.5':  'Rough build (×1.50)',
 };
 
 // Inline style helpers — all light theme, no Tailwind dark utilities

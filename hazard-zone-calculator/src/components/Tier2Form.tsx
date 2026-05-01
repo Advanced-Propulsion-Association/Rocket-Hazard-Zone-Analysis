@@ -241,6 +241,11 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
         setCpIn(data.cpFromNose_in.toFixed(2));
       }
 
+      // Auto-set stage count from .ork
+      if (data.numStagesDetected != null && data.numStagesDetected > 1) {
+        handleNumStagesChange(String(data.numStagesDetected));
+      }
+
       // Auto-lookup motor if designation is available
       if (data.motorDesignation) {
         const desig = data.motorDesignation.trim();
@@ -407,32 +412,34 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
     }
 
     let motor: Motor | null = null;
-    if (motorMode === 'lookup' || motorMode === 'rasp') {
-      motor = resolvedMotor;
-      if (!motor) {
-        onError(motorMode === 'lookup'
-          ? 'Look up a motor first (enter designation and click Search).'
-          : 'Upload a .eng file first.');
-        return;
+    if (!isMultiStage) {
+      if (motorMode === 'lookup' || motorMode === 'rasp') {
+        motor = resolvedMotor;
+        if (!motor) {
+          onError(motorMode === 'lookup'
+            ? 'Look up a motor first (enter designation and click Search).'
+            : 'Upload a .eng file first.');
+          return;
+        }
+        if (motor.thrustCurve.length === 0) {
+          onError(`Motor "${motor.name}" has no thrust data. Try a different motor or use Manual entry.`);
+          return;
+        }
+      } else {
+        const avg = parseFloat(avgThrust);
+        const bt  = parseFloat(burnTimeS);
+        const pm  = parseFloat(propMass) * 0.453592;
+        const mm  = parseFloat(motorMass) * 0.453592;
+        if (!avg || !bt || !pm || !mm) { onError('Fill in all four manual motor fields.'); return; }
+        motor = makeBoxcarMotor(avg, bt, pm, mm, 'Manual');
       }
-      if (motor.thrustCurve.length === 0) {
-        onError(`Motor "${motor.name}" has no thrust data. Try a different motor or use Manual entry.`);
-        return;
-      }
-    } else {
-      const avg = parseFloat(avgThrust);
-      const bt  = parseFloat(burnTimeS);
-      const pm  = parseFloat(propMass) * 0.453592;
-      const mm  = parseFloat(motorMass) * 0.453592;
-      if (!avg || !bt || !pm || !mm) { onError('Fill in all four manual motor fields.'); return; }
-      motor = makeBoxcarMotor(avg, bt, pm, mm, 'Manual');
-    }
 
-    // Tier 3: nozzle exit area for altitude thrust correction
-    if (isTier3 && nozzleDia) {
-      const nozzleR_m = parseFloat(nozzleDia) * 0.0254 / 2;
-      const nozzleArea = Math.PI * nozzleR_m * nozzleR_m;
-      motor = { ...motor, nozzleExitAreaM2: nozzleArea };
+      // Tier 3: nozzle exit area for altitude thrust correction
+      if (isTier3 && nozzleDia) {
+        const nozzleR_m = parseFloat(nozzleDia) * 0.0254 / 2;
+        const nozzleArea = Math.PI * nozzleR_m * nozzleR_m;
+        motor = { ...motor, nozzleExitAreaM2: nozzleArea };
+      }
     }
 
     const cg = cgIn ? parseFloat(cgIn) : undefined;
@@ -468,6 +475,22 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
         const fr = parseFloat(finRoot) || 0;
         const ft = parseFloat(finTip) || 0;
         const fs = parseFloat(finSpan) || 0;
+        // For multi-stage, sum all stages for mass and impulse inputs to Barrowman.
+        // In single-stage mode use the existing mass field and resolved motor.
+        let bdTotalMass_kg: number;
+        let bdTotalImpulse_Ns: number;
+        if (isMultiStage) {
+          const activeN = parseInt(numStages) || 1;
+          bdTotalMass_kg = stageStates.slice(0, activeN).reduce((sum, s) => {
+            return sum + (parseFloat(s.mass_lb) || 0) * 0.453592 + (s.resolvedMotor?.totalMassKg ?? 0);
+          }, 0);
+          bdTotalImpulse_Ns = stageStates.slice(0, activeN).reduce((sum, s) => {
+            return sum + (s.resolvedMotor ? totalImpulse(s.resolvedMotor) : 0);
+          }, 0);
+        } else {
+          bdTotalMass_kg = m_lb * 0.453592;
+          bdTotalImpulse_Ns = motor ? totalImpulse(motor) : 0;
+        }
         const bd = barrowmanDragBreakdown({
           noseConeType:    noseType,
           noseLength_in:   nl,
@@ -477,8 +500,8 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
           finTipChord_in:  ft,
           finSpan_in:      fs,
           numFins:         nf,
-          totalImpulse_Ns: motor ? totalImpulse(motor) : 0,
-          totalMass_kg:    m_lb * 0.453592,
+          totalImpulse_Ns: bdTotalImpulse_Ns,
+          totalMass_kg:    bdTotalMass_kg,
         });
         cdOverride = bd.CD_total;
         barrowmanBreakdown = bd;
@@ -500,11 +523,12 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
         if (!m || m <= 0) { onError(`Stage ${i + 1}: enter a valid hardware mass.`); return; }
         if (!s.resolvedMotor) { onError(`Stage ${i + 1}: look up a motor first.`); return; }
       }
-      const stageConfigs: StageConfig[] = stageStates.slice(0, stages).map(s => ({
+      const stageConfigs: StageConfig[] = stageStates.slice(0, stages).map((s, i) => ({
         motor: s.resolvedMotor!,
         stageMass_lb: parseFloat(s.mass_lb),
         separationDelay_s: parseFloat(s.sepDelay_s) || 0,
         tumbleOnSeparation: s.tumble,
+        cdOverride: orkData?.stageData?.[i]?.cdOverride,
       }));
       onComputing();
       setTimeout(() => {

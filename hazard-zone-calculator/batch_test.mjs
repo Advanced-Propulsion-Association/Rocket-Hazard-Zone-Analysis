@@ -129,7 +129,7 @@ function cdMach(cdSub, mach) {
 }
 
 /**
- * Mach correction for tangent ogive noses (session 9 fix — v2).
+ * Mach correction for tangent ogive noses (session 9 fix — v2, session 14 transonic calibration).
  *
  * Root cause of old cdMach() error for ogives:
  *   cdMach() adds a +20% transonic peak at M=1.0 for ALL nose shapes.
@@ -138,15 +138,25 @@ function cdMach(cdSub, mach) {
  *   falls BELOW subsonic value. The cdMach() supersonic decay (0.91× at M=1.3, 0.71× at M=2)
  *   captures this correctly and should be kept.
  *
- * Fix: remove the transonic peak for ogive noses; keep the same supersonic decay.
- *   M < 1.3: flat at cdSub (no wave drag, skin friction change negligible)
- *   M ≥ 1.3: same 1.055·M^(-0.561) decay as cdMach
+ * Session 14 calibration: 20 positive M-class outliers remain at Mach 0.85–1.13 with the
+ * flat cdSub below M=1.3. Real tangent ogives show ~12–13% drag rise in the transonic regime
+ * despite OR's sinphi=0 bug suppressing it. A small parabolic bump (peak +13% at M≈0.975)
+ * is added to reduce ~7 of those outliers.
  *
- * The small discontinuity at M=1.3 (1.0→0.91×) is acceptable.
- * Source: aerodynamics_reference.md §12.1.
+ * Shape:
+ *   M < 0.85:       flat at cdSub
+ *   M 0.85→1.10:    parabolic bump, +13% peak at M=0.975 (t=0.5)
+ *   M ≥ 1.10:       supersonic decay 1.055·M^(-0.561) — smooth at M=1.10 (≈1.00×)
+ *
+ * Source: aerodynamics_reference.md §12.1; batch calibration session 14.
  */
 function cdMachOgive(cdSub, mach) {
-  if (mach < 1.3) return cdSub;
+  if (mach < 0.85) return cdSub;
+  if (mach < 1.1) {
+    const t    = (mach - 0.85) / 0.25;        // 0 at M=0.85, 1 at M=1.10
+    const bump = 0.13 * 4.0 * t * (1.0 - t);  // parabola, peak +13% at t=0.5 (M≈0.975)
+    return cdSub * (1.0 + bump);
+  }
   return cdSub * 1.055 * Math.pow(mach, -0.561);
 }
 

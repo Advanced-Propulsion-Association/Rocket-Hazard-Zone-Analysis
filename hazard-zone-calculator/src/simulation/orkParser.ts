@@ -164,6 +164,34 @@ export async function parseOrkFile(buffer: ArrayBuffer, clipAtApogee = true): Pr
     ? (getText(rocketEl, 'name') || rocketEl.getAttribute('name') || undefined)
     : undefined;
 
+  // ── Stage count ──────────────────────────────────────────────────────────────
+  // Each physical stage is wrapped in a <stage> element; count equals numStages.
+  const stageEls = Array.from(doc.getElementsByTagName('stage'));
+  const numStagesDetected = stageEls.length > 0 ? stageEls.length : 1;
+
+  // ── Per-stage CD overrides ────────────────────────────────────────────────────
+  // OpenRocket stores explicit CD overrides as <overridecd>true</overridecd> +
+  // <cd>value</cd> on a stage or body component within that stage.
+  // OR lists stages sustainer-first in the XML (top of rocket first), so we
+  // reverse to match our stageStates convention: index 0 = booster (fires first).
+  function getStageCdOverride(stageEl: Element): number | undefined {
+    const overrideEls = Array.from(stageEl.getElementsByTagName('overridecd'));
+    for (const overrideEl of overrideEls) {
+      if (overrideEl.textContent?.trim().toLowerCase() !== 'true') continue;
+      // Find the sibling <cd> element at the same depth as <overridecd>
+      const siblings = Array.from(overrideEl.parentElement?.children ?? []);
+      const cdEl = siblings.find(s => s.tagName.toLowerCase() === 'cd');
+      if (cdEl) {
+        const v = parseFloat(cdEl.textContent ?? '');
+        if (isFinite(v) && v > 0) return v;
+      }
+    }
+    return undefined;
+  }
+  // Reverse: OR XML order is [sustainer, ..., booster]; our index 0 = booster
+  const stageDataRaw = [...stageEls].reverse().map(el => ({ cdOverride: getStageCdOverride(el) }));
+  const stageData = stageDataRaw.some(s => s.cdOverride != null) ? stageDataRaw : undefined;
+
   // ── Nose cone ────────────────────────────────────────────────────────────────
   const noseEl = doc.getElementsByTagName('nosecone')[0] ?? null;
   const noseShape = noseEl ? (noseEl.getAttribute('shape') ?? getText(noseEl, 'shape')) : 'ogive';
@@ -337,6 +365,8 @@ export async function parseOrkFile(buffer: ArrayBuffer, clipAtApogee = true): Pr
 
   return {
     rocketName,
+    numStagesDetected,
+    stageData,
     bodyDiameter_in: radius_m * 2 * M_TO_IN,
     bodyLength_in:   totalLength_m * M_TO_IN,
     noseConeType:    mapNoseShape(noseShape),

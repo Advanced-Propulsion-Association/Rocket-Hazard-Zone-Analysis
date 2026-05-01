@@ -43,6 +43,13 @@ export default function App() {
             return `  angle ${angle}°: ${pts.length} pts, apogee=${apogee.toFixed(0)}m, impact x=${last?.x.toFixed(0)}m z=${last?.z.toFixed(1)}m`;
           })
         : ['  (no trajectories stored)']),
+      ...(r.stageImpacts ? [
+        '',
+        `stageImpacts (${r.stageImpacts.length}):`,
+        ...r.stageImpacts.map(si =>
+          `  ${si.label}: ${si.range_ft.toFixed(0)} ft  (${si.range_m.toFixed(0)} m)`
+        ),
+      ] : []),
     ].join('\n');
 
     setDebugLog(log);

@@ -447,6 +447,15 @@ export function computeMultiStageHazardZone(input: MultiStageHazardZoneInput): H
       : `Unstable rocket (${stabResult.margin_cal.toFixed(2)} cal) — CD increased ×2.0.`);
   }
 
+  // Per-stage CDs: if a stage has a cdOverride (e.g. from .ork), use it scaled by buildQuality.
+  // Falls back to the global baseCd/effectiveCd when no per-stage override is set.
+  const stageCdBase = input.stages.map(s =>
+    s.cdOverride != null ? s.cdOverride * (input.buildQuality ?? 1.0) : baseCd
+  );
+  const stageCdEff = stageCdBase.map(cd =>
+    stabResult && stabResult.multiplier !== 1.0 ? cd * stabResult.multiplier : cd
+  );
+
   const totalI = input.stages.reduce((s, st) => s + totalImpulse(st.motor), 0);
   const mClass = motorClass(totalI);
   if (totalI > 10240) warnings.push('Total impulse class M or above — additional FAA notification required.');
@@ -479,7 +488,7 @@ export function computeMultiStageHazardZone(input: MultiStageHazardZoneInput): H
     const s1Pts = simulate({
       bodyDiameter_m: diameter_m, bodyLength_m: length_m,
       totalMass_kg: launchMass_kg, motor: input.stages[0].motor,
-      cdOverride: baseCd,          // no stability penalty on powered ascent
+      cdOverride: stageCdBase[0],  // per-stage CD, no stability penalty on powered ascent
       launchAngle_deg: angleDeg,
       siteElevation_m: siteElev_m, siteTemp_K, surfaceWind_ms: wind_ms,
       stopAtTime: s1StopTime,
@@ -489,7 +498,7 @@ export function computeMultiStageHazardZone(input: MultiStageHazardZoneInput): H
     // ── S1 booster tumbling ballistic ─────────────────────────────────────────
     const s1DryMass_kg = input.stages[0].stageMass_lb * LB_TO_KG
       + (input.stages[0].motor.totalMassKg - input.stages[0].motor.propellantMassKg);
-    const boosterCd   = (input.stages[0].tumbleOnSeparation ?? true) ? effectiveCd * 2.0 : effectiveCd;
+    const boosterCd   = (input.stages[0].tumbleOnSeparation ?? true) ? stageCdEff[0] * 2.0 : stageCdEff[0];
     const boosterPts  = simulate({
       bodyDiameter_m: diameter_m, bodyLength_m: length_m,
       totalMass_kg: s1DryMass_kg, motor: coastMotor(s1DryMass_kg),
@@ -516,7 +525,7 @@ export function computeMultiStageHazardZone(input: MultiStageHazardZoneInput): H
       const stagePts = simulate({
         bodyDiameter_m: diameter_m, bodyLength_m: length_m,
         totalMass_kg: upperMass, motor: stage.motor,
-        cdOverride: baseCd, launchAngle_deg: 0, thrustAngle_deg: thrustAngle,
+        cdOverride: stageCdBase[i], launchAngle_deg: 0, thrustAngle_deg: thrustAngle,
         siteElevation_m: siteElev_m, siteTemp_K, surfaceWind_ms: wind_ms,
         initialX_m: prevSep.x, initialZ_m: Math.max(prevSep.z, 1),
         initialVx_ms: prevSep.vx, initialVz_ms: prevSep.vz,
@@ -533,7 +542,7 @@ export function computeMultiStageHazardZone(input: MultiStageHazardZoneInput): H
         prevSep = stagePts[stagePts.length - 1];
         const intermDryMass = stage.stageMass_lb * LB_TO_KG
           + (stage.motor.totalMassKg - stage.motor.propellantMassKg);
-        const intermCd = (stage.tumbleOnSeparation ?? true) ? effectiveCd * 2.0 : effectiveCd;
+        const intermCd = (stage.tumbleOnSeparation ?? true) ? stageCdEff[i] * 2.0 : stageCdEff[i];
         const intermPts = simulate({
           bodyDiameter_m: diameter_m, bodyLength_m: length_m,
           totalMass_kg: intermDryMass, motor: coastMotor(intermDryMass),

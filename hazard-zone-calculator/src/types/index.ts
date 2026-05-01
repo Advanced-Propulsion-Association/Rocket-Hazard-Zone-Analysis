@@ -23,6 +23,7 @@ export interface StageConfig {
   stageMass_lb: number;         // structural/hardware mass of this stage only (excluding motor)
   separationDelay_s?: number;   // coast time after burnout before separation (default 0)
   tumbleOnSeparation?: boolean; // default true — separated stages tumble, applying 2× CD
+  cdOverride?: number;          // per-stage CD override (e.g. from .ork file overridecd)
 }
 
 // ─── Rocket Configuration ────────────────────────────────────────────────────
@@ -148,6 +149,8 @@ export interface OpenRocketData {
   numFins?: number;
   cgFromNose_in?: number;
   cpFromNose_in?: number;
+  numStagesDetected?: number;  // count of <stage> elements in the .ork file
+  stageData?: Array<{ cdOverride?: number }>; // per-stage overrides; index 0 = booster (firing order)
   motorDesignation?: string;
   motorManufacturer?: string;
   maxApogee_m?: number;
