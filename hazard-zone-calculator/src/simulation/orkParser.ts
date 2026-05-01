@@ -177,13 +177,18 @@ export async function parseOrkFile(buffer: ArrayBuffer, clipAtApogee = true): Pr
   function getStageCdOverride(stageEl: Element): number | undefined {
     const overrideEls = Array.from(stageEl.getElementsByTagName('overridecd'));
     for (const overrideEl of overrideEls) {
-      if (overrideEl.textContent?.trim().toLowerCase() !== 'true') continue;
-      // Find the sibling <cd> element at the same depth as <overridecd>
-      const siblings = Array.from(overrideEl.parentElement?.children ?? []);
-      const cdEl = siblings.find(s => s.tagName.toLowerCase() === 'cd');
-      if (cdEl) {
-        const v = parseFloat(cdEl.textContent ?? '');
-        if (isFinite(v) && v > 0) return v;
+      const txt = overrideEl.textContent?.trim() ?? '';
+      // Modern OR format: <overridecd>0.45</overridecd> (numeric directly)
+      const direct = parseFloat(txt);
+      if (isFinite(direct) && direct > 0) return direct;
+      // Legacy OR format: <overridecd>true</overridecd> + sibling <cd>value</cd>
+      if (txt.toLowerCase() === 'true') {
+        const siblings = Array.from(overrideEl.parentElement?.children ?? []);
+        const cdEl = siblings.find(s => s.tagName.toLowerCase() === 'cd');
+        if (cdEl) {
+          const v = parseFloat(cdEl.textContent ?? '');
+          if (isFinite(v) && v > 0) return v;
+        }
       }
     }
     return undefined;
