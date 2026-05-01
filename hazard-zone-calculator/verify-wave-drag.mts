@@ -31,6 +31,7 @@ const ogiveCorrCases: Array<[number, number]> = [
   [0.95, 0.40 + 0.025*(0.95-0.85)/0.20], // linear ramp: ~0.4125
   [1.05, 0.40 + 0.025],               // plateau start: 0.425
   [1.10, 0.40 + 0.025],               // plateau end (still additive): 0.425
+  [1.1001, 0.40 * 1.055 * Math.pow(1.1001, -0.561) + 0.025], // just past plateau — supersonic branch
   [1.20, 0.40 * 1.055 * Math.pow(1.20, -0.561) + 0.025], // supersonic
   [2.00, 0.40 * 1.055 * Math.pow(2.00, -0.561) + 0.025 * 1.20 / 2.00], // supersonic decay
 ];
