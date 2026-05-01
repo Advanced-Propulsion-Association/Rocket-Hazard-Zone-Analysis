@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Allow pre-built docs PDFs (parent repo excludes *.pdf globally)
+!docs/pdf/*.pdf
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
