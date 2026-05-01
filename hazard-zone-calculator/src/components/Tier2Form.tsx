@@ -138,6 +138,7 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
   const [orkParsing, setOrkParsing]   = useState(false);
   const [clipAtApogee, setClipAtApogee] = useState(true);
   const [manualCdOverride, setManualCdOverride] = useState('');
+  const [showGeometryDetails, setShowGeometryDetails] = useState(true);
   const orkFileRef = useRef<HTMLInputElement>(null);
 
   // OpenRocket flight data CSV import (Tier 3 only)
@@ -221,6 +222,7 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
       const buffer = await file.arrayBuffer();
       const data = await parseOrkFile(buffer, clipAtApogee);
       setOrkData(data);
+      setShowGeometryDetails(false); // collapse manual inputs — .ork auto-filled them
 
       // Pre-fill geometry fields
       if (data.bodyDiameter_in > 0) setDiameter(data.bodyDiameter_in.toFixed(3));
@@ -666,7 +668,7 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
           </button>
           <input ref={orkFileRef} type="file" accept=".ork" className="hidden" onChange={handleOrkUpload} />
           {orkData && (
-            <button type="button" onClick={() => { setOrkData(null); setOrkStatus(''); }}
+            <button type="button" onClick={() => { setOrkData(null); setOrkStatus(''); setShowGeometryDetails(true); }}
               className="text-xs px-2 py-1 rounded border border-slate-600 hover:border-slate-400 text-slate-400 hover:text-white transition-colors">
               Clear
             </button>
@@ -862,135 +864,171 @@ export function Tier2Form({ tier, onComputing, onResult, onError, onCoordsChange
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-4">
-          <Field label="Body diameter (in)">
-            <input type="number" min="0.1" max="24" step="any"
-              value={diameter} onChange={e => setDiameter(e.target.value)}
-              placeholder="e.g. 2.56" required className="input-field" />
-            <Help>Outer tube diameter. Sets the reference drag area and stability caliber denominator.</Help>
-          </Field>
-          <Field label="Total length (in)">
-            <input type="number" min="1" max="600" step="any"
-              value={length} onChange={e => setLength(e.target.value)}
-              placeholder="e.g. 48" required className="input-field" />
-            <Help>Nose tip to nozzle exit. Used with diameter to compute fineness ratio (L/D) for drag estimate.</Help>
-          </Field>
-          <Field label="Loaded weight (lbs)">
-            <input type="number" min="0.01" max="500" step="any"
-              value={mass} onChange={e => setMass(e.target.value)}
-              placeholder="e.g. 4.5" required className="input-field" />
-            <Help>Full ready-to-fly mass including motor, propellant, and recovery hardware. Heavier rocket = slower = shorter range.</Help>
-          </Field>
-        </div>
-
-        {/* Build quality multiplier */}
-        <div className="mt-4">
-          <Field label="Build quality">
-            <select value={buildQuality} onChange={e => setBuildQuality(e.target.value)}
-              className={`input-field ${manualCdOverride ? 'opacity-40' : ''}`}
-              disabled={!!manualCdOverride}>
-              <option value="1.0">Ideal — 1.0× (theoretical minimum drag)</option>
-              <option value="1.15">Competition — 1.15× (very smooth finish, minimal hardware)</option>
-              <option value="1.30">Standard build — 1.30× (typical kit rocket, rail buttons, seams)</option>
-              <option value="1.50">Rough build — 1.50× (significant protuberances, rough finish)</option>
-            </select>
-          </Field>
-          {manualCdOverride ? (
-            <div className="mt-2 flex items-center gap-2 rounded bg-violet-900/40 border border-violet-700 px-3 py-2 text-xs">
-              <span className="text-violet-300 font-medium">CD override active: {manualCdOverride}</span>
-              <span className="text-slate-400">(from .ork — build quality multiplier bypassed)</span>
-              <button type="button" onClick={() => setManualCdOverride('')}
-                className="ml-auto text-slate-400 hover:text-white transition-colors">Clear ×</button>
+        {/* ── Geometry collapse/expand when .ork is loaded ───────────────── */}
+        {orkData && !showGeometryDetails ? (
+          <div className="flex items-center gap-3 mt-1 rounded-lg bg-slate-700/30 border border-slate-600/60 px-4 py-2.5">
+            <div className="flex-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-400">
+              <span>Dia: <span className="text-slate-200">{diameter}&quot;</span></span>
+              <span>Length: <span className="text-slate-200">{length}&quot;</span></span>
+              {!(parseInt(numStages) > 1) && mass && (
+                <span>Mass: <span className="text-slate-200">{mass} lbs</span></span>
+              )}
+              {isTier3 && noseLength && (
+                <span>Nose: <span className="text-slate-200">{noseType} {noseLength}&quot;</span></span>
+              )}
+              {isTier3 && finRoot && (
+                <span>Fins: <span className="text-slate-200">{numFins} · root {finRoot}&quot; · span {finSpan}&quot;</span></span>
+              )}
+              <span>Build quality: <span className="text-slate-200">×{buildQuality}</span></span>
             </div>
-          ) : (
-            <p className="text-xs text-slate-500 mt-1">
-              {isTier3
-                ? 'Multiplied into the Barrowman base CD after component drag buildup.'
-                : 'Multiplied into the fineness-ratio CD estimate. As-built rockets typically have 15–30% more drag than ideal models.'}
-            </p>
-          )}
-        </div>
-
-        {/* Tier 3 extra geometry */}
-        {isTier3 && (
+            <button type="button" onClick={() => setShowGeometryDetails(true)}
+              className="text-xs px-2.5 py-1 rounded border border-slate-600 hover:border-slate-400 text-slate-400 hover:text-white transition-colors shrink-0">
+              Edit
+            </button>
+          </div>
+        ) : (
           <>
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <Field label="Nose cone type">
-                <select value={noseType}
-                  onChange={e => setNoseType(e.target.value as typeof noseType)}
-                  className="input-field">
-                  <option value="ogive">Tangent Ogive (most common)</option>
-                  <option value="conical">Conical</option>
-                  <option value="parabolic">Parabolic</option>
-                  <option value="haack">Von Karman / Haack</option>
-                </select>
-                <Help>Affects wave drag at transonic speeds. Tangent ogive is most common and has low drag.</Help>
+            <div className="grid grid-cols-3 gap-4">
+              <Field label="Body diameter (in)">
+                <input type="number" min="0.1" max="24" step="any"
+                  value={diameter} onChange={e => setDiameter(e.target.value)}
+                  placeholder="e.g. 2.56" required className="input-field" />
+                <Help>Outer tube diameter. Sets the reference drag area and stability caliber denominator.</Help>
               </Field>
-              <Field label="Nose cone length (in)">
-                <input type="number" min="0.5" max="60" step="any"
-                  value={noseLength} onChange={e => setNoseLength(e.target.value)}
-                  placeholder="e.g. 12" className="input-field" />
-                <Help>Longer nose reduces wave drag at high speed. Also used in Barrowman CP estimation.</Help>
+              <Field label="Total length (in)">
+                <input type="number" min="1" max="600" step="any"
+                  value={length} onChange={e => setLength(e.target.value)}
+                  placeholder="e.g. 48" required className="input-field" />
+                <Help>Nose tip to nozzle exit. Used with diameter to compute fineness ratio (L/D) for drag estimate.</Help>
               </Field>
-            </div>
-            <div className="grid grid-cols-3 gap-4 mt-4">
-              <Field label="Number of fins">
-                <input type="number" min="1" max="8" step="1"
-                  value={numFins} onChange={e => setNumFins(e.target.value)}
-                  placeholder="3" className="input-field" />
-                <Help>Number of fins on the rocket. Used in Barrowman drag buildup to compute fin wetted area and interference drag.</Help>
-              </Field>
-              <Field label="Fin root chord (in)">
-                <input type="number" min="0.1" max="36" step="any"
-                  value={finRoot} onChange={e => setFinRoot(e.target.value)}
-                  placeholder="e.g. 6" className="input-field" />
-                <Help>Length of the fin edge attached to the body tube. Larger fins push the center of pressure (CP) aft.</Help>
-              </Field>
-              <Field label="Fin tip chord (in)">
-                <input type="number" min="0" max="24" step="any"
-                  value={finTip} onChange={e => setFinTip(e.target.value)}
-                  placeholder="e.g. 3" className="input-field" />
-                <Help>Length of the fin&apos;s free outer edge. Enter 0 for triangular fins. Affects CP location and fin drag.</Help>
-              </Field>
-              <Field label="Fin span (in)">
-                <input type="number" min="0.1" max="36" step="any"
-                  value={finSpan} onChange={e => setFinSpan(e.target.value)}
-                  placeholder="e.g. 5" className="input-field" />
-                <Help>Distance from the body tube to the fin tip. Larger span moves CP further aft for better stability.</Help>
-              </Field>
-              <Field label="Nozzle exit diameter (in)">
-                <input type="number" min="0.1" max="12" step="any"
-                  value={nozzleDia} onChange={e => setNozzleDia(e.target.value)}
-                  placeholder="e.g. 1.5" className="input-field" />
-                <Help>Enables altitude-corrected thrust. At high altitude, lower ambient pressure increases effective thrust.</Help>
+              <Field label="Loaded weight (lbs)">
+                <input type="number" min="0.01" max="500" step="any"
+                  value={mass} onChange={e => setMass(e.target.value)}
+                  placeholder="e.g. 4.5" required className="input-field" />
+                <Help>Full ready-to-fly mass including motor, propellant, and recovery hardware. Heavier rocket = slower = shorter range.</Help>
               </Field>
             </div>
 
-            {/* Live Barrowman CD breakdown */}
-            {liveBarrowman && (
-              <div className={`mt-4 rounded-lg border p-3 transition-opacity ${(orFlightData || !!manualCdOverride) ? 'bg-slate-800/20 border-slate-700/40 opacity-40 pointer-events-none select-none' : 'bg-slate-700/40 border-slate-600'}`}>
-                <p className="text-xs font-medium text-slate-300 uppercase tracking-widest mb-2">
-                  Live Barrowman CD Breakdown
-                  {orFlightData && <span className="ml-2 normal-case tracking-normal font-normal text-amber-400/80">— OR data active, Barrowman not used</span>}
-                  {!orFlightData && manualCdOverride && <span className="ml-2 normal-case tracking-normal font-normal text-violet-400/80">— .ork CD override active, Barrowman not used</span>}
-                </p>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-xs">
-                  <span className="text-slate-400">Body skin friction</span>
-                  <span className="text-slate-200">{liveBarrowman.CD_friction.toFixed(3)}</span>
-                  <span className="text-slate-400">Base (nozzle wake)</span>
-                  <span className="text-slate-200">{liveBarrowman.CD_base.toFixed(3)}</span>
-                  <span className="text-slate-400">Fin drag</span>
-                  <span className="text-slate-200">{liveBarrowman.CD_fins.toFixed(3)}</span>
-                  <span className="text-slate-400">Nose pressure</span>
-                  <span className="text-slate-200">{liveBarrowman.CD_nose_pressure.toFixed(3)}</span>
-                  <span className="text-slate-400">Parasitic (lugs, roughness)</span>
-                  <span className="text-slate-200">{liveBarrowman.CD_parasitic.toFixed(3)}</span>
-                  <span className="text-slate-300 font-medium pt-1">Base CD total</span>
-                  <span className="text-slate-100 font-medium pt-1">{liveBarrowman.CD_total.toFixed(3)}</span>
-                  <span className="text-slate-300 font-medium">Effective CD (×{buildQuality})</span>
-                  <span className="text-blue-300 font-medium">{(liveBarrowman.CD_total * (parseFloat(buildQuality) || 1)).toFixed(3)}</span>
+            {/* Build quality multiplier */}
+            <div className="mt-4">
+              <Field label="Build quality">
+                <select value={buildQuality} onChange={e => setBuildQuality(e.target.value)}
+                  className={`input-field ${manualCdOverride ? 'opacity-40' : ''}`}
+                  disabled={!!manualCdOverride}>
+                  <option value="1.0">Ideal — 1.0× (theoretical minimum drag)</option>
+                  <option value="1.15">Competition — 1.15× (very smooth finish, minimal hardware)</option>
+                  <option value="1.30">Standard build — 1.30× (typical kit rocket, rail buttons, seams)</option>
+                  <option value="1.50">Rough build — 1.50× (significant protuberances, rough finish)</option>
+                </select>
+              </Field>
+              {manualCdOverride ? (
+                <div className="mt-2 flex items-center gap-2 rounded bg-violet-900/40 border border-violet-700 px-3 py-2 text-xs">
+                  <span className="text-violet-300 font-medium">CD override active: {manualCdOverride}</span>
+                  <span className="text-slate-400">(from .ork — build quality multiplier bypassed)</span>
+                  <button type="button" onClick={() => setManualCdOverride('')}
+                    className="ml-auto text-slate-400 hover:text-white transition-colors">Clear ×</button>
                 </div>
-                <p className="text-xs text-slate-500 mt-2">Updates live as you change geometry. Build quality multiplier applied at simulation time.</p>
+              ) : (
+                <p className="text-xs text-slate-500 mt-1">
+                  {isTier3
+                    ? 'Multiplied into the Barrowman base CD after component drag buildup.'
+                    : 'Multiplied into the fineness-ratio CD estimate. As-built rockets typically have 15–30% more drag than ideal models.'}
+                </p>
+              )}
+            </div>
+
+            {/* Tier 3 extra geometry */}
+            {isTier3 && (
+              <>
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <Field label="Nose cone type">
+                    <select value={noseType}
+                      onChange={e => setNoseType(e.target.value as typeof noseType)}
+                      className="input-field">
+                      <option value="ogive">Tangent Ogive (most common)</option>
+                      <option value="conical">Conical</option>
+                      <option value="parabolic">Parabolic</option>
+                      <option value="haack">Von Karman / Haack</option>
+                    </select>
+                    <Help>Affects wave drag at transonic speeds. Tangent ogive is most common and has low drag.</Help>
+                  </Field>
+                  <Field label="Nose cone length (in)">
+                    <input type="number" min="0.5" max="60" step="any"
+                      value={noseLength} onChange={e => setNoseLength(e.target.value)}
+                      placeholder="e.g. 12" className="input-field" />
+                    <Help>Longer nose reduces wave drag at high speed. Also used in Barrowman CP estimation.</Help>
+                  </Field>
+                </div>
+                <div className="grid grid-cols-3 gap-4 mt-4">
+                  <Field label="Number of fins">
+                    <input type="number" min="1" max="8" step="1"
+                      value={numFins} onChange={e => setNumFins(e.target.value)}
+                      placeholder="3" className="input-field" />
+                    <Help>Number of fins on the rocket. Used in Barrowman drag buildup to compute fin wetted area and interference drag.</Help>
+                  </Field>
+                  <Field label="Fin root chord (in)">
+                    <input type="number" min="0.1" max="36" step="any"
+                      value={finRoot} onChange={e => setFinRoot(e.target.value)}
+                      placeholder="e.g. 6" className="input-field" />
+                    <Help>Length of the fin edge attached to the body tube. Larger fins push the center of pressure (CP) aft.</Help>
+                  </Field>
+                  <Field label="Fin tip chord (in)">
+                    <input type="number" min="0" max="24" step="any"
+                      value={finTip} onChange={e => setFinTip(e.target.value)}
+                      placeholder="e.g. 3" className="input-field" />
+                    <Help>Length of the fin&apos;s free outer edge. Enter 0 for triangular fins. Affects CP location and fin drag.</Help>
+                  </Field>
+                  <Field label="Fin span (in)">
+                    <input type="number" min="0.1" max="36" step="any"
+                      value={finSpan} onChange={e => setFinSpan(e.target.value)}
+                      placeholder="e.g. 5" className="input-field" />
+                    <Help>Distance from the body tube to the fin tip. Larger span moves CP further aft for better stability.</Help>
+                  </Field>
+                  <Field label="Nozzle exit diameter (in)">
+                    <input type="number" min="0.1" max="12" step="any"
+                      value={nozzleDia} onChange={e => setNozzleDia(e.target.value)}
+                      placeholder="e.g. 1.5" className="input-field" />
+                    <Help>Enables altitude-corrected thrust. At high altitude, lower ambient pressure increases effective thrust.</Help>
+                  </Field>
+                </div>
+
+                {/* Live Barrowman CD breakdown */}
+                {liveBarrowman && (
+                  <div className={`mt-4 rounded-lg border p-3 transition-opacity ${(orFlightData || !!manualCdOverride) ? 'bg-slate-800/20 border-slate-700/40 opacity-40 pointer-events-none select-none' : 'bg-slate-700/40 border-slate-600'}`}>
+                    <p className="text-xs font-medium text-slate-300 uppercase tracking-widest mb-2">
+                      Live Barrowman CD Breakdown
+                      {orFlightData && <span className="ml-2 normal-case tracking-normal font-normal text-amber-400/80">— OR data active, Barrowman not used</span>}
+                      {!orFlightData && manualCdOverride && <span className="ml-2 normal-case tracking-normal font-normal text-violet-400/80">— .ork CD override active, Barrowman not used</span>}
+                    </p>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-xs">
+                      <span className="text-slate-400">Body skin friction</span>
+                      <span className="text-slate-200">{liveBarrowman.CD_friction.toFixed(3)}</span>
+                      <span className="text-slate-400">Base (nozzle wake)</span>
+                      <span className="text-slate-200">{liveBarrowman.CD_base.toFixed(3)}</span>
+                      <span className="text-slate-400">Fin drag</span>
+                      <span className="text-slate-200">{liveBarrowman.CD_fins.toFixed(3)}</span>
+                      <span className="text-slate-400">Nose pressure</span>
+                      <span className="text-slate-200">{liveBarrowman.CD_nose_pressure.toFixed(3)}</span>
+                      <span className="text-slate-400">Parasitic (lugs, roughness)</span>
+                      <span className="text-slate-200">{liveBarrowman.CD_parasitic.toFixed(3)}</span>
+                      <span className="text-slate-300 font-medium pt-1">Base CD total</span>
+                      <span className="text-slate-100 font-medium pt-1">{liveBarrowman.CD_total.toFixed(3)}</span>
+                      <span className="text-slate-300 font-medium">Effective CD (×{buildQuality})</span>
+                      <span className="text-blue-300 font-medium">{(liveBarrowman.CD_total * (parseFloat(buildQuality) || 1)).toFixed(3)}</span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-2">Updates live as you change geometry. Build quality multiplier applied at simulation time.</p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Collapse link — only shown when .ork is loaded and fields are expanded */}
+            {orkData && (
+              <div className="mt-3 text-right">
+                <button type="button" onClick={() => setShowGeometryDetails(false)}
+                  className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                  ▲ Collapse geometry
+                </button>
               </div>
             )}
           </>
