@@ -1,4 +1,4 @@
-# FAA Hobby Rocket Hazard Zone Calculator — User & Methodology Manual
+# FAA Rocket Hazard Zone Calculator — User & Methodology Manual
 
 **Version:** see `package.json`
 **Organization:** Advanced Propulsion Association
@@ -23,7 +23,7 @@
 
 ### 1.1 What This Tool Does
 
-The FAA Hobby Rocket Hazard Zone Calculator computes the minimum safe exclusion radius around a hobby rocket launch site. Given a rocket's geometry, propulsion data, and launch conditions, it simulates the rocket's trajectory across a sweep of worst-case launch angles and returns the maximum downrange distance any piece of the rocket could travel from the launch pad. That distance is the **hazard zone radius** — the area that must be kept clear of uninvolved persons during flight.
+The FAA Rocket Hazard Zone Calculator computes the minimum safe exclusion radius around a rocket launch site. Given a rocket's geometry, propulsion data, and launch conditions, it simulates the rocket's trajectory across a sweep of worst-case launch angles and returns the maximum downrange distance any piece of the rocket could travel from the launch pad. That distance is the **hazard zone radius** — the area that must be kept clear of uninvolved persons during flight.
 
 This tool was developed to replace the FAA's legacy TAOS (Trajectory Analysis for Orbital Safing) tool, a 1995 Sandia National Laboratories program that is no longer publicly distributed and requires outdated hardware to run. The hazard zone calculator replicates TAOS's conservative point-mass trajectory approach in a modern web interface, producing results consistent with FAA Order 8900.1 Volume 3 Chapter 6 methodology.
 
@@ -66,7 +66,7 @@ The calculator is a web application hosted at the Advanced Propulsion Associatio
 **Local setup (for contributors):**
 
 ```bash
-git clone https://github.com/Advanced-Propulsion-Association/Hobby-Rocket-Hazard-Zone-Analysis.git
+git clone https://github.com/Advanced-Propulsion-Association/Rocket-Hazard-Zone-Analysis.git
 cd hazard-zone-calculator
 npm install
 npm run dev
@@ -118,7 +118,7 @@ For very high apogees (above 50,000 ft AGL), Tier 1 results should be treated as
 ### 3.3 When Tier 1 Is Sufficient
 
 Tier 1 is appropriate when:
-- The rocket is low-power (A through D motors) and the site is a standard hobby club field.
+- The rocket is low-power (A through D motors) and the site is a standard club field.
 - Motor data is not yet available (preliminary site assessment).
 - A quick conservative upper bound is needed for initial planning.
 
@@ -200,7 +200,7 @@ The nose cone type affects the drag model. Tangent ogive noses use a physics-bas
 |-------|-------------|
 | Nozzle Exit Diameter | Nozzle exit diameter for thrust correction | inches |
 
-The nozzle exit diameter enables ambient pressure thrust correction: at altitude, the nozzle operates at lower ambient pressure than at sea level, increasing effective thrust. For most hobby rockets this correction is small (1–3%) but it is included for completeness.
+The nozzle exit diameter enables ambient pressure thrust correction: at altitude, the nozzle operates at lower ambient pressure than at sea level, increasing effective thrust. For most rockets this correction is small (1–3%) but it is included for completeness.
 
 ### 5.2 OpenRocket Cross-Validation Workflow
 
@@ -250,7 +250,7 @@ The outermost curve's landing point defines the hazard zone radius. Note that ve
 
 ### 7.1 FAA Waiver Requirements — 14 CFR §101.25
 
-Hobby rockets operating at altitudes above 400 ft AGL or with motors above a certain total impulse threshold require an FAA Certificate of Waiver or Authorization (COA). The specific thresholds are defined in 14 CFR §101.25:
+Rockets operating at altitudes above 400 ft AGL or with motors above a certain total impulse threshold require an FAA Certificate of Waiver or Authorization (COA). The specific thresholds are defined in 14 CFR §101.25:
 
 - **§101.25(b):** A COA is required for any rocket with a total installed impulse exceeding 30,000 N·s (roughly O-class).
 - **§101.25(g):** The minimum operating radius for any waivered launch site is **1,500 ft AGL** (457 m). Even if the computed hazard zone is smaller, the exclusion area must be at least this radius.

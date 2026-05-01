@@ -62,7 +62,7 @@ export function cdMachCorrectionOgive(cdSubsonic: number, mach: number): number 
  */
 export const CD_PROFILES = [
   { label: 'Streamlined — polished, optimized fins',  value: 0.35 },
-  { label: 'Standard — typical hobby build',           value: 0.50 },
+  { label: 'Standard — typical build',           value: 0.50 },
   { label: 'Rough — rough finish, blocky fins',        value: 0.65 },
   { label: 'Unfinished — very rough, no optimization', value: 0.80 },
 ] as const;

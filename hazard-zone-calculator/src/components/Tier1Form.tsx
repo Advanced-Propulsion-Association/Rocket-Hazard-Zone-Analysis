@@ -167,7 +167,7 @@ export function Tier1Form({ onComputing, onResult, onError, onCoordsChange, onWi
       {/* Tier 1 governing rule note */}
       <div className="rounded-lg bg-slate-700/30 border border-slate-600 px-4 py-2.5 text-xs text-slate-400">
         Hazard zone = <span className="text-slate-200">max(ballistic physics, apogee ÷ 4)</span>.
-        For typical hobby rockets the ¼-altitude rule governs — use <span className="text-slate-200">Tier 2 or Tier 3</span> to model your actual rocket geometry and CD.
+        For typical rockets the ¼-altitude rule governs — use <span className="text-slate-200">Tier 2 or Tier 3</span> to model your actual rocket geometry and CD.
       </div>
 
       {/* Conservative assumptions disclosure */}
@@ -194,7 +194,7 @@ export function Tier1Form({ onComputing, onResult, onError, onCoordsChange, onWi
               <span className="text-slate-400">Body length</span>
               <span className="text-slate-200">50 in (1,270 mm)</span>
               <span className="text-slate-400">Descent drag coefficient (CD)</span>
-              <span className="text-slate-200">0.50 (standard hobby build)</span>
+              <span className="text-slate-200">0.50 (standard build)</span>
               <span className="text-slate-400">Max launch tilt</span>
               <span className="text-slate-200">20° from vertical (NAR/Tripoli limit)</span>
               <span className="text-slate-400">Surface wind</span>

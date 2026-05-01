@@ -42,7 +42,7 @@ echo "Converting Markdown to HTML..."
   --standalone \
   --embed-resources \
   --css "$CSS" \
-  --metadata title="FAA Hobby Rocket Hazard Zone Calculator — Methodology" \
+  --metadata title="FAA Rocket Hazard Zone Calculator — Methodology" \
   --metadata author="Advanced Propulsion Association" \
   --metadata date="$(date +%Y-%m-%d)" \
   --toc \

@@ -87,7 +87,7 @@ export default function App() {
         <div className="max-w-4xl mx-auto px-6 py-4">
           <div className="flex items-baseline gap-3">
             <h1 className="text-xl font-bold text-white tracking-tight">
-              FAA Hobby Rocket Hazard Zone Calculator
+              FAA Rocket Hazard Zone Calculator
             </h1>
             <span className="text-xs text-slate-400 font-mono">v1.0</span>
           </div>

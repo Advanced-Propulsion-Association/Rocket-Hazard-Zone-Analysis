@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Advanced Propulsion Association" />
   <meta name="dcterms.date" content="2026-05-01" />
-  <title>FAA Hobby Rocket Hazard Zone Calculator — Methodology</title>
+  <title>FAA Rocket Hazard Zone Calculator — Methodology</title>
   <style>
 
 span.smallcaps{font-variant: small-caps;}
@@ -204,15 +204,14 @@ table, pre { page-break-inside: avoid; }
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">FAA Hobby Rocket Hazard Zone Calculator —
-Methodology</h1>
+<h1 class="title">FAA Rocket Hazard Zone Calculator — Methodology</h1>
 <p class="author">Advanced Propulsion Association</p>
 <p class="date">2026-05-01</p>
 </header>
 <nav id="TOC" role="doc-toc">
 <ul>
-<li><a href="#faa-hobby-rocket-hazard-zone-calculator-user-methodology-manual" id="toc-faa-hobby-rocket-hazard-zone-calculator-user-methodology-manual">FAA
-Hobby Rocket Hazard Zone Calculator — User &amp; Methodology Manual</a>
+<li><a href="#faa-rocket-hazard-zone-calculator-user-methodology-manual" id="toc-faa-rocket-hazard-zone-calculator-user-methodology-manual">FAA
+Rocket Hazard Zone Calculator — User &amp; Methodology Manual</a>
 <ul>
 <li><a href="#table-of-contents" id="toc-table-of-contents">Table of
 Contents</a></li>
@@ -303,8 +302,8 @@ Sources</a></li>
 </ul></li>
 </ul>
 </nav>
-<h1 id="faa-hobby-rocket-hazard-zone-calculator-user-methodology-manual">FAA
-Hobby Rocket Hazard Zone Calculator — User &amp; Methodology Manual</h1>
+<h1 id="faa-rocket-hazard-zone-calculator-user-methodology-manual">FAA
+Rocket Hazard Zone Calculator — User &amp; Methodology Manual</h1>
 <p><strong>Version:</strong> see <code>package.json</code>
 <strong>Organization:</strong> Advanced Propulsion Association
 <strong>Document type:</strong> User Manual and Methodology
@@ -327,14 +326,14 @@ Analysis</a></li>
 <hr />
 <h2 id="overview">1. Overview</h2>
 <h3 id="what-this-tool-does">1.1 What This Tool Does</h3>
-<p>The FAA Hobby Rocket Hazard Zone Calculator computes the minimum safe
-exclusion radius around a hobby rocket launch site. Given a rocket’s
-geometry, propulsion data, and launch conditions, it simulates the
-rocket’s trajectory across a sweep of worst-case launch angles and
-returns the maximum downrange distance any piece of the rocket could
-travel from the launch pad. That distance is the <strong>hazard zone
-radius</strong> — the area that must be kept clear of uninvolved persons
-during flight.</p>
+<p>The FAA Rocket Hazard Zone Calculator computes the minimum safe
+exclusion radius around a rocket launch site. Given a rocket’s geometry,
+propulsion data, and launch conditions, it simulates the rocket’s
+trajectory across a sweep of worst-case launch angles and returns the
+maximum downrange distance any piece of the rocket could travel from the
+launch pad. That distance is the <strong>hazard zone radius</strong> —
+the area that must be kept clear of uninvolved persons during
+flight.</p>
 <p>This tool was developed to replace the FAA’s legacy TAOS (Trajectory
 Analysis for Orbital Safing) tool, a 1995 Sandia National Laboratories
 program that is no longer publicly distributed and requires outdated
@@ -416,7 +415,7 @@ are not modeled.</li>
 Association’s GitHub Pages deployment. No installation is required —
 open the URL in any modern browser.</p>
 <p><strong>Local setup (for contributors):</strong></p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/Advanced-Propulsion-Association/Hobby-Rocket-Hazard-Zone-Analysis.git</span>
+<div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/Advanced-Propulsion-Association/Rocket-Hazard-Zone-Analysis.git</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> hazard-zone-calculator</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> install</span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> run dev</span></code></pre></div>
@@ -484,9 +483,9 @@ and atmospheric effects dominate in ways that a simple altitude-fraction
 rule does not capture well. Use Tier 2 or Tier 3 instead.</p>
 <h3 id="when-tier-1-is-sufficient">3.3 When Tier 1 Is Sufficient</h3>
 <p>Tier 1 is appropriate when: - The rocket is low-power (A through D
-motors) and the site is a standard hobby club field. - Motor data is not
-yet available (preliminary site assessment). - A quick conservative
-upper bound is needed for initial planning.</p>
+motors) and the site is a standard club field. - Motor data is not yet
+available (preliminary site assessment). - A quick conservative upper
+bound is needed for initial planning.</p>
 <p>Tier 1 is <strong>not</strong> appropriate for FAA waiver
 applications involving high-power rockets. For those, use Tier 3.</p>
 <hr />
@@ -660,8 +659,8 @@ use the standard Mach correction.</p>
 </table>
 <p>The nozzle exit diameter enables ambient pressure thrust correction:
 at altitude, the nozzle operates at lower ambient pressure than at sea
-level, increasing effective thrust. For most hobby rockets this
-correction is small (1–3%) but it is included for completeness.</p>
+level, increasing effective thrust. For most rockets this correction is
+small (1–3%) but it is included for completeness.</p>
 <h3 id="openrocket-cross-validation-workflow">5.2 OpenRocket
 Cross-Validation Workflow</h3>
 <p>Tier 3 includes an OpenRocket apogee validation field. Enter the
@@ -722,10 +721,10 @@ an acceptable analysis method.</p>
 <h2 id="regulatory-context">7. Regulatory Context</h2>
 <h3 id="faa-waiver-requirements-14-cfr-101.25">7.1 FAA Waiver
 Requirements — 14 CFR §101.25</h3>
-<p>Hobby rockets operating at altitudes above 400 ft AGL or with motors
-above a certain total impulse threshold require an FAA Certificate of
-Waiver or Authorization (COA). The specific thresholds are defined in 14
-CFR §101.25:</p>
+<p>Rockets operating at altitudes above 400 ft AGL or with motors above
+a certain total impulse threshold require an FAA Certificate of Waiver
+or Authorization (COA). The specific thresholds are defined in 14 CFR
+§101.25:</p>
 <ul>
 <li><strong>§101.25(b):</strong> A COA is required for any rocket with a
 total installed impulse exceeding 30,000 N·s (roughly O-class).</li>

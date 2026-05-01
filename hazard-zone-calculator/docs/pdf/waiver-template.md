@@ -5,8 +5,8 @@ title: "FAA §101.25 Hazard Zone Analysis — Launch Waiver Application"
 # FAA §101.25 Hazard Zone Analysis
 
 **Document type:** Per-Launch Hazard Zone Analysis  
-**Analysis tool:** FAA Hobby Rocket Hazard Zone Calculator  
-**Methodology reference:** *FAA Hobby Rocket Hazard Zone Calculator — Methodology* (Advanced Propulsion Association, see `docs/pdf/methodology.pdf`)
+**Analysis tool:** FAA Rocket Hazard Zone Calculator  
+**Methodology reference:** *FAA Rocket Hazard Zone Calculator — Methodology* (Advanced Propulsion Association, see `docs/pdf/methodology.pdf`)
 
 ---
 
@@ -43,7 +43,7 @@ title: "FAA §101.25 Hazard Zone Analysis — Launch Waiver Application"
 
 ## Section 3 — Analysis Method
 
-This hazard zone analysis was performed using the **FAA Hobby Rocket Hazard Zone Calculator**, a web-based 3-DOF point-mass trajectory simulation tool developed by the Advanced Propulsion Association. The tool's methodology is documented in the accompanying methodology document.
+This hazard zone analysis was performed using the **FAA Rocket Hazard Zone Calculator**, a web-based 3-DOF point-mass trajectory simulation tool developed by the Advanced Propulsion Association. The tool's methodology is documented in the accompanying methodology document.
 
 **Analysis tier used:** ☐ Tier 1 &nbsp;&nbsp; ☐ Tier 2 &nbsp;&nbsp; ☐ Tier 3
 

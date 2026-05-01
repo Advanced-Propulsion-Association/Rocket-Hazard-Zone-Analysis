@@ -18,7 +18,7 @@
 
 ## 1. Project Overview
 
-The FAA Hazard Zone Calculator is a browser-based tool for computing rocket launch exclusion radii, built to replace the FAA's legacy TAOS (Trajectory Analysis for Orbital Safing) tool from 1995. It simulates hobby rocket trajectories using a 3-DOF point-mass RK4 integrator with a Barrowman-based drag model, then sweeps worst-case launch angles to find the maximum downrange impact distance.
+The FAA Hazard Zone Calculator is a browser-based tool for computing rocket launch exclusion radii, built to replace the FAA's legacy TAOS (Trajectory Analysis for Orbital Safing) tool from 1995. It simulates rocket trajectories using a 3-DOF point-mass RK4 integrator with a Barrowman-based drag model, then sweeps worst-case launch angles to find the maximum downrange impact distance.
 
 **Tech stack:** React 18, TypeScript 5, Vite 5, Tailwind CSS 4. No backend — the simulation runs entirely in the browser.
 
@@ -30,7 +30,7 @@ The FAA Hazard Zone Calculator is a browser-based tool for computing rocket laun
 
 ```bash
 # Clone and install
-git clone https://github.com/Advanced-Propulsion-Association/Hobby-Rocket-Hazard-Zone-Analysis.git
+git clone https://github.com/Advanced-Propulsion-Association/Rocket-Hazard-Zone-Analysis.git
 cd hazard-zone-calculator
 npm install
 
