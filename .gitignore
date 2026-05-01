@@ -23,6 +23,18 @@ Thumbs.db
 # Visual brainstorming sessions
 .superpowers/
 
+# Internal planning / spec files (not for public repo)
+docs/superpowers/
+hazard-zone-calculator/docs/superpowers/
+
+# Research reference files
+*.txt
+Hazard_Zone_One_Pager.md
+
+# Batch test dev artifacts
+hazard-zone-calculator/batch_results*.csv
+hazard-zone-calculator/investigate_report.txt
+
 # Environment / secrets
 .env
 .env.*

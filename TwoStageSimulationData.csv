@@ -1,0 +1,5 @@
+Warnings,Name,Configuration,Velocity off rod (ft/s),Apogee (ft),Velocity at deployment (ft/s),Optimum delay (s),Max. velocity (ft/s),Max. acceleration (ft/s²),Time to apogee (s),Flight time (s),Ground hit velocity (ft/s)
+"Open forward airframe (diameter > 0):  ""Interstage""",Simulation 1,[H148R-0; H148R-0],65.902,2214.498,62.48,8.021,520.994,362.169,11.091,64.194,20.322
+"Open forward airframe (diameter > 0):  ""Interstage""",Simulation 2,[I59WN-P; I357T-14],39.162,5693.107,63.682,6.259,649.382,254.671,18.211,122.389,20.691
+"Open forward airframe (diameter > 0):  ""Interstage""",Simulation 3,[I59WN-P; I357T-14],52.701,5702.223,63.677,6.32,649.523,254.684,18.272,122.757,20.816
+"Recovery device deployment at high speed (463 ft/s):  ""Booster Chute""",Simulation 4,[J415W-14; J315R-0],39.366,6321.363,54.724,10.084,1154.113,542.849,16.099,291.491,22.828

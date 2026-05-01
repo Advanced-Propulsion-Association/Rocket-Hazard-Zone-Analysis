@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Advanced Propulsion Association" />
+  <meta name="dcterms.date" content="2026-05-01" />
+  <title>FAA Hobby Rocket Hazard Zone Calculator — Methodology</title>
+  <style>
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+  <style type="text/css">
+
+@page {
+margin: 1in; 
+
+@top-center { content: ""; }
+@bottom-center { content: ""; }
+}
+body {
+font-family: Georgia, "Times New Roman", serif;
+font-size: 11pt;
+line-height: 1.55;
+color: #111;
+max-width: 720px;
+margin: 0 auto;
+}
+
+h1 {
+font-size: 20pt;
+margin-top: 0;
+margin-bottom: 0.4em;
+border-bottom: 2px solid #333;
+padding-bottom: 0.2em;
+}
+h2 {
+font-size: 15pt;
+margin-top: 2em; 
+margin-bottom: 0.5em;
+border-bottom: 1px solid #aaa;
+padding-bottom: 0.15em;
+}
+h3 {
+font-size: 12pt;
+margin-top: 1.4em; 
+margin-bottom: 0.4em;
+}
+h4 {
+font-size: 11pt;
+margin-top: 1.2em;
+margin-bottom: 0.3em;
+}
+
+p {
+margin-top: 0.4em;
+margin-bottom: 0.6em;
+}
+ul, ol {
+margin-top: 0.3em;
+margin-bottom: 0.6em;
+padding-left: 1.8em;
+}
+li {
+margin-bottom: 0.25em;
+}
+
+table {
+border-collapse: collapse;
+width: 100%;
+margin: 1em 0;
+font-size: 10pt;
+}
+th, td {
+border: 1px solid #ccc;
+padding: 0.4em 0.7em;
+text-align: left;
+}
+th {
+background: #f0f0f0;
+font-weight: bold;
+}
+
+pre {
+background: #f6f6f6;
+border: 1px solid #ddd;
+border-left: 3px solid #888;
+padding: 0.7em 1em;
+font-size: 9.5pt;
+overflow-x: auto;
+margin: 0.8em 0;
+line-height: 1.45;
+}
+code {
+font-size: 9.5pt;
+background: #f3f3f3;
+padding: 0.1em 0.3em;
+border-radius: 2px;
+}
+pre code {
+background: none;
+padding: 0;
+}
+
+nav#TOC {
+background: #f9f9f9;
+border: 1px solid #ddd;
+padding: 1em 1.5em;
+margin-bottom: 2em;
+font-size: 10pt;
+}
+nav#TOC ul {
+margin: 0.3em 0;
+}
+
+@media print {
+
+h2 { page-break-before: always; }
+h2:first-of-type { page-break-before: avoid; }
+
+h2, h3, h4 { page-break-after: avoid; }
+
+table, pre { page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">FAA Hobby Rocket Hazard Zone Calculator —
+Methodology</h1>
+<p class="author">Advanced Propulsion Association</p>
+<p class="date">2026-05-01</p>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#faa-hobby-rocket-hazard-zone-calculator-user-methodology-manual" id="toc-faa-hobby-rocket-hazard-zone-calculator-user-methodology-manual">FAA
+Hobby Rocket Hazard Zone Calculator — User &amp; Methodology Manual</a>
+<ul>
+<li><a href="#table-of-contents" id="toc-table-of-contents">Table of
+Contents</a></li>
+<li><a href="#overview" id="toc-overview">1. Overview</a>
+<ul>
+<li><a href="#what-this-tool-does" id="toc-what-this-tool-does">1.1 What
+This Tool Does</a></li>
+<li><a href="#when-to-use-each-tier" id="toc-when-to-use-each-tier">1.2
+When to Use Each Tier</a></li>
+<li><a href="#conservative-assumptions" id="toc-conservative-assumptions">1.3 Conservative Assumptions</a></li>
+<li><a href="#limitations" id="toc-limitations">1.4 Limitations</a></li>
+</ul></li>
+<li><a href="#getting-started" id="toc-getting-started">2. Getting
+Started</a>
+<ul>
+<li><a href="#accessing-the-tool" id="toc-accessing-the-tool">2.1
+Accessing the Tool</a></li>
+<li><a href="#choosing-your-tier" id="toc-choosing-your-tier">2.2
+Choosing Your Tier</a></li>
+<li><a href="#uploading-an-openrocket-file" id="toc-uploading-an-openrocket-file">2.3 Uploading an OpenRocket
+File</a></li>
+<li><a href="#browser-compatibility" id="toc-browser-compatibility">2.4
+Browser Compatibility</a></li>
+</ul></li>
+<li><a href="#tier-1-apogee-only-analysis" id="toc-tier-1-apogee-only-analysis">3. Tier 1: Apogee-Only Analysis</a>
+<ul>
+<li><a href="#input-fields" id="toc-input-fields">3.1 Input
+Fields</a></li>
+<li><a href="#how-the-hazard-zone-is-computed" id="toc-how-the-hazard-zone-is-computed">3.2 How the Hazard Zone Is
+Computed</a></li>
+<li><a href="#when-tier-1-is-sufficient" id="toc-when-tier-1-is-sufficient">3.3 When Tier 1 Is
+Sufficient</a></li>
+</ul></li>
+<li><a href="#tier-2-basic-simulation" id="toc-tier-2-basic-simulation">4. Tier 2: Basic Simulation</a>
+<ul>
+<li><a href="#input-fields-1" id="toc-input-fields-1">4.1 Input
+Fields</a></li>
+<li><a href="#multi-stage-configuration" id="toc-multi-stage-configuration">4.2 Multi-Stage
+Configuration</a></li>
+<li><a href="#reading-the-results" id="toc-reading-the-results">4.3
+Reading the Results</a></li>
+</ul></li>
+<li><a href="#tier-3-full-barrowman-analysis" id="toc-tier-3-full-barrowman-analysis">5. Tier 3: Full Barrowman
+Analysis</a>
+<ul>
+<li><a href="#additional-inputs" id="toc-additional-inputs">5.1
+Additional Inputs</a></li>
+<li><a href="#openrocket-cross-validation-workflow" id="toc-openrocket-cross-validation-workflow">5.2 OpenRocket
+Cross-Validation Workflow</a></li>
+<li><a href="#when-tier-3-is-required" id="toc-when-tier-3-is-required">5.3 When Tier 3 Is Required</a></li>
+</ul></li>
+<li><a href="#results-interpretation" id="toc-results-interpretation">6.
+Results Interpretation</a>
+<ul>
+<li><a href="#hazard-zone-radius" id="toc-hazard-zone-radius">6.1 Hazard
+Zone Radius</a></li>
+<li><a href="#what-the-trajectory-plot-shows" id="toc-what-the-trajectory-plot-shows">6.2 What the Trajectory Plot
+Shows</a></li>
+<li><a href="#exporting-results" id="toc-exporting-results">6.3
+Exporting Results</a></li>
+</ul></li>
+<li><a href="#regulatory-context" id="toc-regulatory-context">7.
+Regulatory Context</a>
+<ul>
+<li><a href="#faa-waiver-requirements-14-cfr-101.25" id="toc-faa-waiver-requirements-14-cfr-101.25">7.1 FAA Waiver
+Requirements — 14 CFR §101.25</a></li>
+<li><a href="#nartripoli-quarter-altitude-rule" id="toc-nartripoli-quarter-altitude-rule">7.2 NAR/Tripoli
+Quarter-Altitude Rule</a></li>
+<li><a href="#using-this-tools-output-in-a-waiver-application" id="toc-using-this-tools-output-in-a-waiver-application">7.3 Using This
+Tool’s Output in a Waiver Application</a></li>
+<li><a href="#coordination-with-site-owners" id="toc-coordination-with-site-owners">7.4 Coordination with Site
+Owners</a></li>
+</ul></li>
+<li><a href="#technical-reference" id="toc-technical-reference">8.
+Technical Reference</a>
+<ul>
+<li><a href="#coordinate-system-and-equations-of-motion" id="toc-coordinate-system-and-equations-of-motion">8.1 Coordinate System
+and Equations of Motion</a></li>
+<li><a href="#atmosphere-model" id="toc-atmosphere-model">8.2 Atmosphere
+Model</a></li>
+<li><a href="#drag-model" id="toc-drag-model">8.3 Drag Model</a></li>
+<li><a href="#worst-case-trajectory-sweep" id="toc-worst-case-trajectory-sweep">8.4 Worst-Case Trajectory
+Sweep</a></li>
+<li><a href="#multi-stage-simulation" id="toc-multi-stage-simulation">8.5 Multi-Stage Simulation</a></li>
+<li><a href="#cited-sources" id="toc-cited-sources">8.6 Cited
+Sources</a></li>
+</ul></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="faa-hobby-rocket-hazard-zone-calculator-user-methodology-manual">FAA
+Hobby Rocket Hazard Zone Calculator — User &amp; Methodology Manual</h1>
+<p><strong>Version:</strong> see <code>package.json</code>
+<strong>Organization:</strong> Advanced Propulsion Association
+<strong>Document type:</strong> User Manual and Methodology
+Reference</p>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol type="1">
+<li><a href="#1-overview">Overview</a></li>
+<li><a href="#2-getting-started">Getting Started</a></li>
+<li><a href="#3-tier-1-apogee-only-analysis">Tier 1: Apogee-Only
+Analysis</a></li>
+<li><a href="#4-tier-2-basic-simulation">Tier 2: Basic
+Simulation</a></li>
+<li><a href="#5-tier-3-full-barrowman-analysis">Tier 3: Full Barrowman
+Analysis</a></li>
+<li><a href="#6-results-interpretation">Results Interpretation</a></li>
+<li><a href="#7-regulatory-context">Regulatory Context</a></li>
+<li><a href="#8-technical-reference">Technical Reference</a></li>
+</ol>
+<hr />
+<h2 id="overview">1. Overview</h2>
+<h3 id="what-this-tool-does">1.1 What This Tool Does</h3>
+<p>The FAA Hobby Rocket Hazard Zone Calculator computes the minimum safe
+exclusion radius around a hobby rocket launch site. Given a rocket’s
+geometry, propulsion data, and launch conditions, it simulates the
+rocket’s trajectory across a sweep of worst-case launch angles and
+returns the maximum downrange distance any piece of the rocket could
+travel from the launch pad. That distance is the <strong>hazard zone
+radius</strong> — the area that must be kept clear of uninvolved persons
+during flight.</p>
+<p>This tool was developed to replace the FAA’s legacy TAOS (Trajectory
+Analysis for Orbital Safing) tool, a 1995 Sandia National Laboratories
+program that is no longer publicly distributed and requires outdated
+hardware to run. The hazard zone calculator replicates TAOS’s
+conservative point-mass trajectory approach in a modern web interface,
+producing results consistent with FAA Order 8900.1 Volume 3 Chapter 6
+methodology.</p>
+<h3 id="when-to-use-each-tier">1.2 When to Use Each Tier</h3>
+<table>
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 36%" />
+<col style="width: 47%" />
+</colgroup>
+<thead>
+<tr>
+<th>Tier</th>
+<th>When to use</th>
+<th>Required inputs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Tier 1</strong></td>
+<td>Quick estimate; low-power rockets; no motor data</td>
+<td>Expected apogee only</td>
+</tr>
+<tr>
+<td><strong>Tier 2</strong></td>
+<td>Standard analysis; rocket geometry and motor are known</td>
+<td>Body dimensions, motor, mass</td>
+</tr>
+<tr>
+<td><strong>Tier 3</strong></td>
+<td>High-power; FAA waiver applications; M-class and above</td>
+<td>Full geometry including nose cone, fins, staging</td>
+</tr>
+</tbody>
+</table>
+<p>For FAA §101.25 waiver applications, <strong>Tier 3 is
+recommended</strong> for all high-power rockets. Tier 1 is a
+conservative upper bound suitable for preliminary planning. Tier 2 is
+appropriate for mid-power rockets where detailed fin geometry is not
+available.</p>
+<h3 id="conservative-assumptions">1.3 Conservative Assumptions</h3>
+<p>The tool deliberately overestimates hazard zone size. Every
+assumption is chosen to produce a <strong>larger</strong> exclusion
+radius, not a smaller one:</p>
+<ul>
+<li>The rocket is assumed to remain nose-forward throughout descent
+(less drag = more range than a tumbling rocket).</li>
+<li>Launch angles from 0° (vertical) to 20° from vertical are all
+simulated; the worst case is used.</li>
+<li>A 20 MPH headwind is applied throughout flight (consistent with
+NAR/Tripoli site safety rules).</li>
+<li>Subsonic drag uses the lowest plausible coefficient for the rocket’s
+geometry.</li>
+</ul>
+<p>These assumptions ensure the computed hazard zone is never smaller
+than the actual danger area.</p>
+<h3 id="limitations">1.4 Limitations</h3>
+<ul>
+<li><strong>3-DOF point-mass model.</strong> The simulation does not
+model pitch, roll, or yaw. The rocket is treated as a particle with
+aerodynamic drag.</li>
+<li><strong>Standard atmosphere only.</strong> Density, temperature, and
+pressure follow the 1976 US Standard Atmosphere. Site-specific weather
+(humidity, temperature inversion) is not modeled.</li>
+<li><strong>Constant headwind.</strong> Wind speed is applied as a
+constant horizontal velocity offset. Wind shear, gusts, and crosswinds
+are not modeled.</li>
+<li><strong>Single-axis trajectory.</strong> All simulations are 2D
+(downrange × altitude). Lateral dispersion is not computed.</li>
+</ul>
+<hr />
+<h2 id="getting-started">2. Getting Started</h2>
+<h3 id="accessing-the-tool">2.1 Accessing the Tool</h3>
+<p>The calculator is a web application hosted at the Advanced Propulsion
+Association’s GitHub Pages deployment. No installation is required —
+open the URL in any modern browser.</p>
+<p><strong>Local setup (for contributors):</strong></p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/Advanced-Propulsion-Association/Hobby-Rocket-Hazard-Zone-Analysis.git</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> hazard-zone-calculator</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> install</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> run dev</span></code></pre></div>
+<p>Open <code>http://localhost:5173</code> in your browser.</p>
+<h3 id="choosing-your-tier">2.2 Choosing Your Tier</h3>
+<p>Start at the Tier Selector panel. If you have an OpenRocket
+<code>.ork</code> file for your rocket, upload it — the tool will parse
+it and pre-fill all available fields, then suggest the appropriate tier
+based on what data was found.</p>
+<p>If you are entering data manually, work through the tier decision
+table in §1.2.</p>
+<h3 id="uploading-an-openrocket-file">2.3 Uploading an OpenRocket
+File</h3>
+<p>Click <strong>Upload .ork File</strong> and select your OpenRocket
+design file. The parser extracts: - Body diameter and length - Nose cone
+type - Fin geometry (span, root chord, tip chord) - Motor selection
+(matched against ThrustCurve.org database) - Propellant and dry mass -
+Nozzle exit diameter</p>
+<p>After upload, review all pre-filled fields before running the
+simulation. Motor data in particular should be verified — if the motor
+in your <code>.ork</code> file is not in the tool’s database, you will
+need to select a substitute manually.</p>
+<h3 id="browser-compatibility">2.4 Browser Compatibility</h3>
+<p>The tool requires a modern browser with JavaScript enabled. Tested on
+Chrome 120+, Firefox 121+, Safari 17+, and Edge 120+. Internet Explorer
+is not supported.</p>
+<hr />
+<h2 id="tier-1-apogee-only-analysis">3. Tier 1: Apogee-Only
+Analysis</h2>
+<h3 id="input-fields">3.1 Input Fields</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Units</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Expected Apogee</td>
+<td>Peak altitude above ground level</td>
+<td>feet AGL</td>
+</tr>
+<tr>
+<td>Site Elevation</td>
+<td>Launch site elevation above sea level</td>
+<td>feet MSL</td>
+</tr>
+</tbody>
+</table>
+<p>The expected apogee is the only required input. Use the apogee from
+your OpenRocket simulation, RASAero II prediction, or motor
+manufacturer’s stated altitude for your airframe.</p>
+<h3 id="how-the-hazard-zone-is-computed">3.2 How the Hazard Zone Is
+Computed</h3>
+<p>Tier 1 applies a quarter-altitude rule: the hazard zone radius is set
+to one quarter of the expected apogee. This is the formula used by NAR
+and Tripoli for site safety planning, and it is intentionally
+conservative — it assumes the rocket travels horizontally for a full
+quarter of its apogee altitude before impacting the ground.</p>
+<p>For very high apogees (above 50,000 ft AGL), Tier 1 results should be
+treated as preliminary estimates only. At those altitudes, aerodynamic
+and atmospheric effects dominate in ways that a simple altitude-fraction
+rule does not capture well. Use Tier 2 or Tier 3 instead.</p>
+<h3 id="when-tier-1-is-sufficient">3.3 When Tier 1 Is Sufficient</h3>
+<p>Tier 1 is appropriate when: - The rocket is low-power (A through D
+motors) and the site is a standard hobby club field. - Motor data is not
+yet available (preliminary site assessment). - A quick conservative
+upper bound is needed for initial planning.</p>
+<p>Tier 1 is <strong>not</strong> appropriate for FAA waiver
+applications involving high-power rockets. For those, use Tier 3.</p>
+<hr />
+<h2 id="tier-2-basic-simulation">4. Tier 2: Basic Simulation</h2>
+<h3 id="input-fields-1">4.1 Input Fields</h3>
+<p><strong>Body geometry:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Units</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Body Diameter</td>
+<td>Maximum outer diameter of airframe</td>
+<td>inches</td>
+</tr>
+<tr>
+<td>Body Length</td>
+<td>Total length from nose tip to nozzle exit</td>
+<td>inches</td>
+</tr>
+<tr>
+<td>Dry Mass</td>
+<td>Airframe mass without propellant</td>
+<td>lbs</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Motor:</strong></p>
+<p>Select from the built-in ThrustCurve.org database. The tool supports
+RASP format thrust curves. Propellant mass, total impulse, and burn time
+are loaded automatically from the selected motor.</p>
+<p><strong>Launch conditions:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Launch Angle</td>
+<td>Degrees from vertical</td>
+<td>0° (vertical)</td>
+</tr>
+<tr>
+<td>Headwind</td>
+<td>Surface wind speed opposing flight</td>
+<td>0 MPH</td>
+</tr>
+<tr>
+<td>Site Elevation</td>
+<td>Launch pad altitude MSL</td>
+<td>0 ft</td>
+</tr>
+<tr>
+<td>Site Temperature</td>
+<td>Ambient temperature at launch</td>
+<td>59°F (288 K)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Note on headwind:</strong> The tool simulates the headwind
+you enter <strong>plus</strong> the worst-case wind from the angle
+sweep. You do not need to enter 20 MPH manually — entering your actual
+wind condition produces a conservative result for your specific launch
+day. See §8.4 for how the sweep works.</p>
+<h3 id="multi-stage-configuration">4.2 Multi-Stage Configuration</h3>
+<p>Toggle <strong>Multi-Stage</strong> to enable two-stage input.
+Provide booster and sustainer parameters separately: - Booster: body
+dimensions, motor, propellant mass - Sustainer: body dimensions, motor,
+ignition delay after booster burnout - The tool computes separate impact
+footprints for the booster (tumbling descent) and sustainer
+(nose-forward descent) and returns the maximum of the two.</p>
+<h3 id="reading-the-results">4.3 Reading the Results</h3>
+<p><strong>Hazard zone radius:</strong> The worst-case impact distance
+from the launch pad across all simulated trajectories. This is the
+exclusion radius you report to the FAA.</p>
+<p><strong>Trajectory sweep plot:</strong> Each line in the plot
+represents a single simulated trajectory at a specific launch angle
+(0°–20° in 1° steps). The outermost line’s endpoint is the hazard zone
+radius.</p>
+<p><strong>NAR/Tripoli comparison:</strong> The results panel displays
+the NAR/Tripoli quarter-altitude estimate alongside the simulation
+result. If the simulation result exceeds the quarter-altitude estimate,
+the simulation result governs.</p>
+<hr />
+<h2 id="tier-3-full-barrowman-analysis">5. Tier 3: Full Barrowman
+Analysis</h2>
+<h3 id="additional-inputs">5.1 Additional Inputs</h3>
+<p>Tier 3 adds detailed geometry on top of all Tier 2 inputs:</p>
+<p><strong>Nose cone:</strong></p>
+<table>
+<colgroup>
+<col style="width: 43%" />
+<col style="width: 56%" />
+</colgroup>
+<thead>
+<tr>
+<th>Field</th>
+<th>Options</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nose Cone Type</td>
+<td>Tangent Ogive, Conical, Parabolic, Von Kármán (Haack)</td>
+</tr>
+<tr>
+<td>Nose Length</td>
+<td>Length of nose cone from tip to shoulder</td>
+</tr>
+</tbody>
+</table>
+<p>The nose cone type affects the drag model. Tangent ogive noses use a
+physics-based wave drag correction at transonic speeds (see §8.3.3).
+Conical noses include a pressure drag term. Parabolic and Haack noses
+use the standard Mach correction.</p>
+<p><strong>Fins:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Units</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Number of Fins</td>
+<td>Typically 3 or 4</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Root Chord</td>
+<td>Length of fin at body junction</td>
+<td>inches</td>
+</tr>
+<tr>
+<td>Tip Chord</td>
+<td>Length of fin at outer edge</td>
+<td>inches</td>
+</tr>
+<tr>
+<td>Semi-Span</td>
+<td>Distance from body to fin tip</td>
+<td>inches</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Motor (extended):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nozzle Exit Diameter</td>
+<td>Nozzle exit diameter for thrust correction</td>
+</tr>
+</tbody>
+</table>
+<p>The nozzle exit diameter enables ambient pressure thrust correction:
+at altitude, the nozzle operates at lower ambient pressure than at sea
+level, increasing effective thrust. For most hobby rockets this
+correction is small (1–3%) but it is included for completeness.</p>
+<h3 id="openrocket-cross-validation-workflow">5.2 OpenRocket
+Cross-Validation Workflow</h3>
+<p>Tier 3 includes an OpenRocket apogee validation field. Enter the
+apogee from your OpenRocket simulation. After running the Tier 3
+analysis, the results panel shows the percent difference between the
+tool’s simulated apogee and the OpenRocket reference.</p>
+<p>A difference within ±10% indicates the tool’s drag model is
+well-calibrated to your rocket. A larger difference suggests the rocket
+has unusual geometry (very high fineness ratio, unusual nose shape, or
+clustering) that may require a manual drag override.</p>
+<p>The tool’s batch validation against 136 IREC 2026 competition rockets
+achieves 100% within ±20% and approximately 73% within ±10%. M-class and
+O-class rockets with tangent ogive noses typically achieve ±5–8%.</p>
+<h3 id="when-tier-3-is-required">5.3 When Tier 3 Is Required</h3>
+<p>Use Tier 3 when: - Filing an FAA §101.25 waiver application for a
+high-power rocket. - The rocket is M-class or above. - Multi-stage
+flight is involved. - The launch site requires a formal hazard analysis
+document.</p>
+<hr />
+<h2 id="results-interpretation">6. Results Interpretation</h2>
+<h3 id="hazard-zone-radius">6.1 Hazard Zone Radius</h3>
+<p>The hazard zone radius is the single output number the tool is
+designed to produce. It is defined as:</p>
+<blockquote>
+<p><strong>The maximum straight-line distance from the launch pad to any
+simulated impact point, across all launch angles from 0° to 20° from
+vertical, with a headwind applied.</strong></p>
+</blockquote>
+<p>This number is the <strong>exclusion radius</strong>: all uninvolved
+persons must be outside this radius from the launch pad during
+flight.</p>
+<p>Report this number in feet. For FAA waiver applications, include it
+in the analysis section of your waiver package alongside the methodology
+PDF (see §7.3).</p>
+<h3 id="what-the-trajectory-plot-shows">6.2 What the Trajectory Plot
+Shows</h3>
+<p>Each curve in the trajectory sweep plot is one simulated flight at a
+specific launch angle. The horizontal axis is downrange distance (feet);
+the vertical axis is altitude AGL (feet). The cluster of curves sweeping
+outward from the origin represents the full range of worst-case
+trajectories.</p>
+<p>The outermost curve’s landing point defines the hazard zone radius.
+Note that vertical launches (0°) achieve the highest apogee but land
+close to the pad; shallow launches (15°–20°) have lower apogees but
+longer horizontal range — the hazard radius is typically set by the
+15°–20° trajectories for high-thrust rockets.</p>
+<h3 id="exporting-results">6.3 Exporting Results</h3>
+<p><strong>Print view:</strong> Click <strong>Print / Export
+PDF</strong> to open a formatted two-page report. The first page shows
+the hazard zone summary, rocket parameters, and regulatory comparison.
+The second page shows the trajectory sweep plot. Print to PDF using your
+browser’s print dialog.</p>
+<p><strong>For waiver applications:</strong> Use the Print view output
+as your analysis attachment. Also attach the methodology PDF (see §7.3)
+as supporting documentation on first submittal to establish the tool as
+an acceptable analysis method.</p>
+<hr />
+<h2 id="regulatory-context">7. Regulatory Context</h2>
+<h3 id="faa-waiver-requirements-14-cfr-101.25">7.1 FAA Waiver
+Requirements — 14 CFR §101.25</h3>
+<p>Hobby rockets operating at altitudes above 400 ft AGL or with motors
+above a certain total impulse threshold require an FAA Certificate of
+Waiver or Authorization (COA). The specific thresholds are defined in 14
+CFR §101.25:</p>
+<ul>
+<li><strong>§101.25(b):</strong> A COA is required for any rocket with a
+total installed impulse exceeding 30,000 N·s (roughly O-class).</li>
+<li><strong>§101.25(g):</strong> The minimum operating radius for any
+waivered launch site is <strong>1,500 ft AGL</strong> (457 m). Even if
+the computed hazard zone is smaller, the exclusion area must be at least
+this radius.</li>
+<li><strong>FAA Order 8900.1, Volume 3, Chapter 6:</strong> Specifies
+the trajectory analysis methodology acceptable to the FAA for amateur
+rocket operations. This tool’s methodology is consistent with Order
+8900.1 guidance.</li>
+</ul>
+<p><strong>Practical rule:</strong> Report the <strong>greater
+of</strong> the computed hazard zone radius and 1,500 ft as your
+exclusion radius in any waiver application.</p>
+<h3 id="nartripoli-quarter-altitude-rule">7.2 NAR/Tripoli
+Quarter-Altitude Rule</h3>
+<p>The National Association of Rocketry (NAR) and Tripoli Rocketry
+Association publish site safety codes that define minimum field sizes as
+a function of motor class and expected altitude. The commonly used rule
+is:</p>
+<blockquote>
+<p><strong>Minimum field radius = Expected apogee ÷ 4</strong></p>
+</blockquote>
+<p>This tool displays this value in the results panel alongside the
+simulation-based hazard zone. The simulation-based result is generally
+more precise because it accounts for actual rocket geometry, motor
+thrust curve, and headwind. For high-power rockets at mid-range
+altitudes, the two values typically agree within 10–20%.</p>
+<p>When the simulation result is <strong>larger</strong> than the
+quarter-altitude estimate, use the simulation result — it means your
+rocket’s aerodynamics result in a longer range than the simple fraction
+suggests.</p>
+<h3 id="using-this-tools-output-in-a-waiver-application">7.3 Using This
+Tool’s Output in a Waiver Application</h3>
+<p>A complete hazard zone analysis package for an FAA waiver application
+should include:</p>
+<ol type="1">
+<li><p><strong>Analysis results page</strong> (from the Print view):
+Shows hazard zone radius, rocket parameters, motor data, and the
+trajectory sweep diagram. Attach as Exhibit A to your waiver
+application.</p></li>
+<li><p><strong>Methodology document</strong>
+(<code>docs/pdf/methodology.pdf</code> from this repository): Explains
+how the simulation works, what assumptions are made, and which standards
+it follows. Submit once to establish the tool as an acceptable
+methodology. Reference it by name and date in subsequent
+applications.</p></li>
+<li><p><strong>Per-waiver summary template</strong>
+(<code>docs/pdf/waiver-template.pdf</code>): A fill-in template specific
+to each launch application. Contains applicant information, rocket
+parameters, the computed hazard zone radius, and a certification
+statement.</p></li>
+</ol>
+<p>When submitting to your local FSDO for the first time, attach all
+three documents. For subsequent applications at the same site with the
+same tool version, the analysis results page and per-waiver template are
+sufficient — the methodology document only needs to be resubmitted if
+the tool version changes significantly.</p>
+<h3 id="coordination-with-site-owners">7.4 Coordination with Site
+Owners</h3>
+<p>The computed hazard zone radius defines the minimum required
+exclusion area. Actual launch site requirements may impose additional
+constraints:</p>
+<ul>
+<li>Waivered launch sites issued by the FAA have a fixed waiver radius
+on the COA. Your computed hazard zone must fit within the waivered
+radius; if it does not, you cannot fly that rocket at that site without
+an amended COA.</li>
+<li>Range safety officers (RSOs) at clubs and launches may apply
+additional safety margins beyond the computed radius.</li>
+<li>ATC coordination may be required for flights into Class E, D, C, or
+B airspace regardless of the ground exclusion radius.</li>
+</ul>
+<hr />
+<h2 id="technical-reference">8. Technical Reference</h2>
+<p>This appendix documents the simulation methodology in sufficient
+detail for independent validation. All values given are the exact
+constants used in the current version of the code.</p>
+<h3 id="coordinate-system-and-equations-of-motion">8.1 Coordinate System
+and Equations of Motion</h3>
+<p>The simulation uses a 2D Cartesian coordinate system:</p>
+<ul>
+<li><strong>x</strong> = downrange distance (horizontal, positive
+downwind)</li>
+<li><strong>z</strong> = altitude AGL (positive up)</li>
+</ul>
+<p>The state vector at each time step is:</p>
+<pre><code>[x, z, vx, vz, m]</code></pre>
+<p>where <code>vx</code> and <code>vz</code> are velocity components and
+<code>m</code> is the instantaneous total mass (decreasing during motor
+burn as propellant is consumed).</p>
+<p><strong>Forces acting on the rocket:</strong></p>
+<ol type="1">
+<li><p><strong>Thrust (T):</strong> Read from the motor’s thrust curve
+at elapsed time <code>t</code>. Applied along the thrust axis (launch
+angle from vertical for single-stage). Ambient pressure correction is
+applied when nozzle exit area is known:</p>
+<pre><code>T_corrected = T_thrust_curve + (P_sea_level − P_ambient) × A_nozzle_exit</code></pre></li>
+<li><p><strong>Aerodynamic drag (D):</strong></p>
+<pre><code>D = ½ × ρ × v_rel² × A_ref × C_D(Mach)</code></pre>
+<p>where <code>v_rel</code> is velocity relative to the air (accounting
+for headwind), <code>A_ref</code> is the body cross-sectional area, and
+<code>C_D</code> is the Mach-corrected drag coefficient.</p></li>
+<li><p><strong>Gravity:</strong> 9.80665 m/s² downward, constant
+throughout flight.</p></li>
+</ol>
+<p><strong>Integration scheme:</strong> 4th-order Runge-Kutta (RK4) with
+maximum time step <code>dt_max = 0.05 s</code>. Maximum simulation time
+is 600 s.</p>
+<p><strong>Mass flow:</strong> Propellant mass decreases linearly with
+instantaneous thrust during the burn:</p>
+<pre><code>dm/dt = −m_propellant × T(t) / I_total</code></pre>
+<p>where <code>I_total</code> is the total motor impulse (N·s).</p>
+<h3 id="atmosphere-model">8.2 Atmosphere Model</h3>
+<p>The tool uses the 1976 US Standard Atmosphere (ISA) with 8 piecewise
+layers. Sea-level reference conditions: T₀ = 288.15 K, P₀ = 101,325 Pa.
+Physical constants: g₀ = 9.80665 m/s², R = 287.058 J/(kg·K), γ =
+1.400.</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Base alt (m)</th>
+<th>Lapse rate (K/m)</th>
+<th>Base T (K)</th>
+<th>Base P (Pa)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Troposphere</td>
+<td>0</td>
+<td>−0.0065</td>
+<td>288.15</td>
+<td>101,325.0</td>
+</tr>
+<tr>
+<td>Tropopause</td>
+<td>11,000</td>
+<td>0.0000</td>
+<td>216.65</td>
+<td>22,632.1</td>
+</tr>
+<tr>
+<td>Stratosphere 1</td>
+<td>20,000</td>
+<td>+0.0010</td>
+<td>216.65</td>
+<td>5,474.89</td>
+</tr>
+<tr>
+<td>Stratosphere 2</td>
+<td>32,000</td>
+<td>+0.0028</td>
+<td>228.65</td>
+<td>868.019</td>
+</tr>
+<tr>
+<td>Stratopause</td>
+<td>47,000</td>
+<td>0.0000</td>
+<td>270.65</td>
+<td>110.906</td>
+</tr>
+<tr>
+<td>Mesosphere 1</td>
+<td>51,000</td>
+<td>−0.0028</td>
+<td>270.65</td>
+<td>66.939</td>
+</tr>
+<tr>
+<td>Mesosphere 2</td>
+<td>71,000</td>
+<td>−0.0020</td>
+<td>214.65</td>
+<td>3.956</td>
+</tr>
+<tr>
+<td>Mesopause</td>
+<td>86,000</td>
+<td>0.0000</td>
+<td>186.87</td>
+<td>0.373</td>
+</tr>
+</tbody>
+</table>
+<p>Temperature at altitude <code>h</code> within a layer:
+<code>T(h) = T_base + lapse × (h − h_base) + ΔT_site</code></p>
+<p>where <code>ΔT_site</code> is the offset between the actual site
+temperature and the ISA sea-level value (allows the tool to account for
+hot or cold launch days).</p>
+<p>Pressure at altitude <code>h</code>: - If lapse ≠ 0:
+<code>P(h) = P_base × (T_base / T(h))^(g₀ / (R × lapse))</code> - If
+lapse = 0 (isothermal):
+<code>P(h) = P_base × exp(−g₀ × Δh / (R × T_base))</code></p>
+<p>Air density: <code>ρ = P / (R × T)</code></p>
+<p>Speed of sound: <code>a = sqrt(γ × R × T)</code> = 340.3 m/s at sea
+level ISA.</p>
+<p><strong>Wind gradient:</strong> Surface wind speed <code>W_s</code>
+is scaled with altitude using a 1/7 power law:</p>
+<pre><code>W(z) = W_s × (z / 10)^0.14   for z &gt; 10 m
+W(z) = W_s                    for z ≤ 10 m</code></pre>
+<h3 id="drag-model">8.3 Drag Model</h3>
+<h4 id="subsonic-baseline-barrowman-component-buildup">8.3.1 Subsonic
+Baseline — Barrowman Component Buildup</h4>
+<p>For Tier 3 inputs, the subsonic drag coefficient is computed from
+first-principles component contributions referenced to the body
+cross-sectional area A_ref = π(D/2)².</p>
+<p><strong>Skin friction (turbulent flat plate):</strong></p>
+<pre><code>C_f = max(0.004,  0.005 × (3×10⁷ / Re_L)^0.15)</code></pre>
+<p>where the reference Reynolds number is
+<code>Re_L = v_ref × L / ν</code> with kinematic viscosity
+<code>ν = 1.5×10⁻⁵ m²/s</code>. The reference velocity is estimated as
+<code>v_ref = I_total / (m_total × 2)</code>.</p>
+<p>Total skin friction drag:</p>
+<pre><code>C_D,friction = C_f × (A_wet,nose + A_wet,body) / A_ref</code></pre>
+<p>Nose cone wetted area is approximated as a cone slant surface. Body
+tube wetted area is the lateral surface of a cylinder.</p>
+<p><strong>Base drag (Hoerner empirical correlation):</strong></p>
+<pre><code>C_D,base = 0.029 / sqrt(C_D,friction,body)</code></pre>
+<p>where <code>C_D,friction,body</code> is the skin friction
+contribution from the body tube only (excluding nose).</p>
+<p><strong>Fin drag:</strong></p>
+<pre><code>C_D,fins = N_fins × (2 × A_fin / A_ref) × C_f × (1 + 2t/c) × 1.1</code></pre>
+<p>where <code>t/c = 0.05</code> (5% fin thickness ratio, typical
+plywood/fibreglass) and the 1.1 factor is Hoerner’s fin-body
+interference correction.</p>
+<p><strong>Nose cone pressure drag (subsonic only):</strong> - Tangent
+ogive, Von Kármán (Haack): <code>C_D,nose = 0</code> (smooth pressure
+recovery) - Parabolic: <code>C_D,nose = 0.01</code> (slight blunt-tip
+correction) - Conical: <code>C_D,nose = min(2 sin²θ_half, 0.05)</code>
+where <code>θ_half = arctan(R / L_nose)</code></p>
+<p><strong>Parasitic drag</strong> (launch lugs, surface joints):
+constant <code>C_D,parasitic = 0.02</code>.</p>
+<p><strong>Total subsonic CD:</strong></p>
+<pre><code>C_D,sub = C_D,friction + C_D,base + C_D,fins + C_D,nose + C_D,parasitic</code></pre>
+<p>For Tier 1 and Tier 2 (no detailed geometry), the subsonic CD is
+estimated from fineness ratio:</p>
+<pre><code>C_D,sub = 0.35 + 3.0 / (L/D)²</code></pre>
+<h4 id="mach-correction-all-shapes-except-tangent-ogive">8.3.2 Mach
+Correction — All Shapes Except Tangent Ogive</h4>
+<p>The following piecewise correction is applied to the subsonic CD for
+all nose cone types except tangent ogive:</p>
+<table>
+<colgroup>
+<col style="width: 40%" />
+<col style="width: 33%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Mach range</th>
+<th>Formula</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M &lt; 0.87</td>
+<td><code>C_D = C_D,sub</code></td>
+<td>Subsonic baseline</td>
+</tr>
+<tr>
+<td>0.87 ≤ M &lt; 1.0</td>
+<td><code>C_D = C_D,sub × (1 + 0.20 × t²)</code> where
+<code>t = (M−0.87)/0.13</code></td>
+<td>Quadratic transonic rise</td>
+</tr>
+<tr>
+<td>1.0 ≤ M &lt; 1.3</td>
+<td><code>C_D = C_D,sub × (1.20 − 0.29 × t)</code> where
+<code>t = (M−1.0)/0.3</code></td>
+<td>Linear decline</td>
+</tr>
+<tr>
+<td>M ≥ 1.3</td>
+<td><code>C_D = C_D,sub × 1.055 × M^(−0.561)</code></td>
+<td>Van Driest supersonic decay</td>
+</tr>
+</tbody>
+</table>
+<p>Peak factor of 1.20× occurs at M = 1.0. At M = 2.0 the multiplier is
+approximately 0.71×.</p>
+<p>Calibration source: OpenRocket session 8 data.</p>
+<h4 id="mach-correction-tangent-ogive-noses-wave-drag-model">8.3.3 Mach
+Correction — Tangent Ogive Noses (Wave Drag Model)</h4>
+<p>Tangent ogive noses produce near-zero subsonic pressure drag (the
+Barrowman sinφ = 0 result, confirmed by OpenRocket source, bug #2998).
+At transonic speeds, however, a real ogive nose generates wave drag that
+is independent of skin friction magnitude. The standard multiplicative
+correction mis-predicts this behavior, so a separate physics-based model
+is used.</p>
+<p><strong>Wave drag increment</strong> (absolute, not a
+multiplier):</p>
+<table>
+<colgroup>
+<col style="width: 40%" />
+<col style="width: 59%" />
+</colgroup>
+<thead>
+<tr>
+<th>Mach range</th>
+<th>Wave drag ΔC_D</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M &lt; 0.85</td>
+<td>0</td>
+</tr>
+<tr>
+<td>0.85 ≤ M &lt; 1.05</td>
+<td><code>0.025 × (M − 0.85) / 0.20</code> (Prandtl-Glauert linear
+onset)</td>
+</tr>
+<tr>
+<td>1.05 ≤ M &lt; 1.20</td>
+<td>0.025 (transonic plateau)</td>
+</tr>
+<tr>
+<td>M ≥ 1.20</td>
+<td><code>0.025 × 1.20 / M</code> (Ackeret 1/M supersonic decay)</td>
+</tr>
+</tbody>
+</table>
+<p>Peak wave drag ΔC_D = 0.025, referenced to body cross-section
+(A_nose/A_ref = 1.0 for tangent ogive).</p>
+<p>Source: NACA free-flight data, Stoney (1954).</p>
+<p><strong>Combined ogive Mach correction:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Mach range</th>
+<th>Formula</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M &lt; 0.85</td>
+<td><code>C_D = C_D,sub</code></td>
+</tr>
+<tr>
+<td>0.85 ≤ M ≤ 1.10</td>
+<td><code>C_D = C_D,sub + ΔC_D,wave</code></td>
+</tr>
+<tr>
+<td>M &gt; 1.10</td>
+<td><code>C_D = C_D,sub × 1.055 × M^(−0.561) + ΔC_D,wave</code></td>
+</tr>
+</tbody>
+</table>
+<p>The transition at M = 1.10 is smooth: the Van Driest multiplier
+evaluates to approximately 1.000 at M = 1.10, so no discontinuity is
+introduced.</p>
+<h3 id="worst-case-trajectory-sweep">8.4 Worst-Case Trajectory
+Sweep</h3>
+<p>To compute the hazard zone radius without knowing the actual launch
+angle, the tool simulates the full family of worst-case
+trajectories:</p>
+<ul>
+<li><strong>Launch angle sweep:</strong> 0° (vertical) to 20° from
+vertical, in 1° increments (21 trajectories total). 20° is the maximum
+angle permitted by NAR/Tripoli site safety rules for high-power
+launches.</li>
+<li><strong>Headwind:</strong> The user-specified surface wind speed is
+applied as a constant horizontal velocity offset opposing forward motion
+throughout the entire trajectory.</li>
+<li><strong>Hazard radius:</strong> The maximum of all 21 trajectory
+impact distances from the launch pad.</li>
+</ul>
+<p>The tool also simulates a pure vertical trajectory (0°) to extract
+the maximum apogee for comparison with the OpenRocket reference and
+NAR/Tripoli quarter-altitude rule.</p>
+<h3 id="multi-stage-simulation">8.5 Multi-Stage Simulation</h3>
+<p>For two-stage rockets, the tool runs four separate simulations and
+combines their impact footprints:</p>
+<ol type="1">
+<li><strong>S1 burn:</strong> Booster fires from launch to burnout.
+State at burnout (position, velocity) is recorded.</li>
+<li><strong>Booster ballistic:</strong> Booster body descends from
+burnout altitude nose-forward (conservative — less drag). Impact point
+is recorded.</li>
+<li><strong>Sustainer burn:</strong> Upper stage fires from the recorded
+burnout state, with a configurable ignition delay. Descends to
+impact.</li>
+<li><strong>Intermediate ballistic:</strong> If staging occurs before
+booster burnout (rare), an intermediate body is simulated
+separately.</li>
+</ol>
+<p>The hazard zone radius is the maximum impact distance across all four
+simulations.</p>
+<h3 id="cited-sources">8.6 Cited Sources</h3>
+<ul>
+<li>Barrowman, J.S. (1967). <em>The Practical Calculation of the
+Aerodynamic Characteristics of Slender Finned Vehicles</em>. Master’s
+thesis, Catholic University of America.</li>
+<li>Stoney, W.E. (1954). <em>Collection of Zero-Lift Drag Data on Bodies
+of Revolution from Free-Flight Investigations</em>. NACA Technical Note
+TN-3391.</li>
+<li>Niskanen, S. (2009). <em>OpenRocket Technical Documentation</em>.
+Helsinki University of Technology.</li>
+<li>FAA Order 8900.1, Volume 3, Chapter 6: <em>Air Traffic Organization
+Policy — Amateur Rocket Operations</em>.</li>
+<li>14 CFR §101.25: <em>Operating limitations for Class 2-High Power
+Rockets and Class 3-Advanced High Power Rockets</em>.</li>
+<li>US Standard Atmosphere, 1976. NOAA/NASA/USAF. Washington, D.C.</li>
+<li>Hoerner, S.F. (1965). <em>Fluid-Dynamic Drag</em>. Published by the
+author.</li>
+</ul>
+</body>
+</html>
