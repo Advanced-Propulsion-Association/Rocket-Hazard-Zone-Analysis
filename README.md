@@ -1,6 +1,6 @@
-# Hobby Rocket Hazard Zone Analysis
+# Rocket Hazard Zone Analysis
 
-A web-based replacement for the FAA TAOS (Trajectory Analysis for Orbital Safing) tool used to compute hazard zones for hobby rocket launches. TAOS was developed by Sandia National Laboratories in 1995 and is no longer functional on modern Windows systems. This tool replicates its conservative ballistic methodology in a browser-based calculator.
+A web-based replacement for the FAA TAOS (Trajectory Analysis for Orbital Safing) tool used to compute hazard zones for rocket launches. TAOS was developed by Sandia National Laboratories in 1995 and is no longer functional on modern Windows systems. This tool replicates its conservative ballistic methodology in a browser-based calculator.
 
 ## What It Does
 
@@ -34,8 +34,8 @@ Output includes hazard zone radius, trajectory sweep plot, NAR/Tripoli quarter-a
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Advanced-Propulsion-Association/Hobby-Rocket-Hazard-Zone-Analysis.git
-cd Hobby-Rocket-Hazard-Zone-Analysis
+git clone https://github.com/Advanced-Propulsion-Association/Rocket-Hazard-Zone-Analysis.git
+cd Rocket-Hazard-Zone-Analysis
 
 # 2. Install dependencies
 cd hazard-zone-calculator
@@ -82,7 +82,7 @@ This tool deliberately uses 3-DOF (translation only, point-mass). Here's why tha
 A 6-DOF sim models a rocket that is flying correctly — stable, well-trimmed, behaving as designed. A hazard zone calculation needs to answer: *if something goes wrong, how far could this rocket travel?* A point-mass with no attitude dynamics is inherently more pessimistic because it doesn't get credit for fin stabilization or aerodynamic self-correction.
 
 **2. 6-DOF requires data you don't have at launch time.**
-Accurate 6-DOF needs moments of inertia, aerodynamic moment coefficients, damping derivatives, and center-of-pressure as a function of angle of attack. These are hard to measure and rarely available for hobby rockets. 3-DOF only needs geometry and thrust — inputs that are realistic to collect.
+Accurate 6-DOF needs moments of inertia, aerodynamic moment coefficients, damping derivatives, and center-of-pressure as a function of angle of attack. These are hard to measure and rarely available for rockets. 3-DOF only needs geometry and thrust — inputs that are realistic to collect.
 
 **3. It matches the regulatory precedent.**
 The original FAA TAOS tool (Sandia National Laboratories, 1995) that this calculator replaces was a 3-DOF point-mass simulation. Using the same methodology keeps results directly comparable to the existing FAA baseline and avoids introducing new assumptions that would need regulatory justification.
